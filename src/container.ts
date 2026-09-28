@@ -17,9 +17,9 @@ export const databaseService = new DatabaseService();
 // 1.1 Initialize System Automation Service with audit logging
 export const systemAutomationService = new SystemAutomationService(databaseService);
 
-// 2. Initialize skill registry and register built-in skills with DB memory and automation
+// 2. Initialize skill registry and register built-in skills (automation inactive in model by default)
 export const skillRegistry = new SkillRegistry();
-registerAllSkills(skillRegistry, databaseService, systemAutomationService);
+registerAllSkills(skillRegistry, databaseService);
 
 // 3. Initialize intent router
 export const intentRouter = new IntentRouter(skillRegistry);

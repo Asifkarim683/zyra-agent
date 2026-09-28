@@ -38,7 +38,7 @@ async function runTests() {
   assert(skillRegistry.has('memory'), 'Memory skill exists');
   assert(skillRegistry.has('timer'), 'Timer skill exists');
   assert(skillRegistry.has('todo'), 'Todo skill exists');
-  assert(skillRegistry.has('system_automation'), 'System automation skill exists');
+  assert(!skillRegistry.has('system_automation'), 'System automation skill is removed from model by default');
 
   // 2. Test Intent Router
   console.log('\n[2] Testing Intent Router...');
@@ -123,24 +123,39 @@ async function runTests() {
   assert(listTasksResult.provider === 'skill', 'List tasks routed to skill');
   assert(listTasksResult.response.includes('review pull request'), 'List tasks shows added task', listTasksResult.response);
 
-  // Test System Automation Skill (Prohibited Command Defense)
-  const prohibitedResult = await orchestrator.process('shutdown computer', convId);
-  assert(prohibitedResult.provider === 'skill', 'Prohibited command routed to automation skill');
-  assert(prohibitedResult.response.includes('prohibited'), 'Prohibited command was blocked by security policy', prohibitedResult.response);
+  // Verify that system automation is detached from the active model orchestrator
+  const modelAutomationCheck = await orchestrator.process('open calculator', convId);
+  assert(modelAutomationCheck.intent?.skill !== 'system_automation', 'System automation skill is inactive in the active model');
 
-  // Test System Automation Skill (Staging Allowlisted App)
-  const stageAppResult = await orchestrator.process('open calculator', convId);
-  assert(stageAppResult.provider === 'skill', 'Open app routed to automation skill');
-  assert(stageAppResult.action === 'pending_confirmation', 'Automation staged with pending_confirmation status');
-  assert(stageAppResult.response.includes('confirm to proceed'), 'Response requests user confirmation before executing', stageAppResult.response);
+  // Test Standalone System Automation (Preserved as an idea for future integration)
+  const { SystemAutomationSkill } = await import('../src/skills/system-automation-skill.js');
+  const { systemAutomationService } = await import('../src/container.js');
+  const standaloneAutomationSkill = new SystemAutomationSkill(systemAutomationService);
 
-  // Test System Automation Skill (Explicit User Confirmation)
-  const confirmResult = await orchestrator.process('confirm', convId);
-  assert(confirmResult.action === 'automation_executed', 'Confirmed action executed successfully');
-  assert(confirmResult.response.includes('launched'), 'Confirmation acknowledged app execution', confirmResult.response);
+  // Test Prohibited Command Defense via Standalone Skill
+  const prohibitedResult = await standaloneAutomationSkill.execute({
+    intent: { intent: 'prohibited_action', skill: 'system_automation', confidence: 1, raw: 'shutdown computer' },
+    conversationId: convId,
+  });
+  assert(prohibitedResult.response.includes('prohibited'), 'Standalone skill blocks prohibited actions', prohibitedResult.response);
+
+  // Test Staging via Standalone Skill
+  const stageSkillResult = await standaloneAutomationSkill.execute({
+    intent: { intent: 'launch_app', skill: 'system_automation', confidence: 1, parameters: { target: 'calculator' }, raw: 'open calculator' },
+    conversationId: convId,
+  });
+  assert(stageSkillResult.action === 'pending_confirmation', 'Standalone skill stages allowlisted app with confirmation');
+  assert(stageSkillResult.response.includes('confirm to proceed'), 'Standalone skill requests user confirmation', stageSkillResult.response);
+
+  // Test Confirmation via Standalone Skill
+  const confirmSkillResult = await standaloneAutomationSkill.execute({
+    intent: { intent: 'confirm_action', skill: 'system_automation', confidence: 1, raw: 'confirm' },
+    conversationId: convId,
+  });
+  assert(confirmSkillResult.action === 'automation_executed', 'Standalone skill executes confirmed action');
+  assert(confirmSkillResult.response.includes('launched'), 'Standalone skill acknowledges app execution', confirmSkillResult.response);
 
   // Test System Automation Allowlist & Safe Availability Checks
-  const { systemAutomationService } = await import('../src/container.js');
   const { ALLOWED_APPS } = await import('../src/services/system-automation-service.js');
   
   const testApps = ['calculator', 'notepad', 'vscode', 'spotify', 'paint', 'terminal'];

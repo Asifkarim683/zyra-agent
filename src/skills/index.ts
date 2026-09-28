@@ -31,13 +31,14 @@ export * from './system-automation-skill.js';
  * @param registry The skill registry instance to populate.
  * @param dbService Optional DatabaseService for memory and persistent skills.
  * @param automationService Optional SystemAutomationService for desktop automation.
+ * @param options Optional configuration flags (enableAutomation defaults to false).
  */
 export function registerAllSkills(
   registry: SkillRegistry,
   dbService?: DatabaseService,
-  automationService?: SystemAutomationService
+  automationService?: SystemAutomationService,
+  options: { enableAutomation?: boolean } = { enableAutomation: false }
 ): void {
-  const autoSvc = automationService || new SystemAutomationService(dbService);
   const skills = [
     new GreetingSkill(),
     new TimeSkill(),
@@ -49,8 +50,14 @@ export function registerAllSkills(
     new MemorySkill(dbService),
     new TimerSkill(),
     new TodoSkill(dbService),
-    new SystemAutomationSkill(autoSvc),
   ];
+
+  // System Automation is intentionally kept inactive in the active model for now.
+  // Preserved as an architectural idea and ready for future integration.
+  if (options.enableAutomation) {
+    const autoSvc = automationService || new SystemAutomationService(dbService);
+    skills.push(new SystemAutomationSkill(autoSvc));
+  }
 
   for (const skill of skills) {
     registry.register(skill.name, skill);
