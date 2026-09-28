@@ -8,6 +8,7 @@ interface HeaderProps {
   onToggleTts: () => void;
   onOpenSkills: () => void;
   onOpenRoutines: () => void;
+  onOpenMemory?: () => void;
   onNewChat?: () => void;
 }
 
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTts,
   onOpenSkills,
   onOpenRoutines,
+  onOpenMemory,
   onNewChat,
 }) => {
   return (
@@ -101,8 +103,9 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Sci-Fi HUD Action Telemetry */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {/* SQLite Memory Badge */}
-        <div
+        {/* SQLite Memory Badge Button */}
+        <button
+          onClick={onOpenMemory}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -114,12 +117,27 @@ export const Header: React.FC<HeaderProps> = ({
             fontSize: '11px',
             color: 'var(--text-secondary)',
             fontFamily: 'var(--font-mono)',
+            cursor: onOpenMemory ? 'pointer' : 'default',
           }}
-          title="Persistent SQLite Long-Term Memory Active"
+          onMouseEnter={(e) => {
+            if (onOpenMemory) {
+              e.currentTarget.style.borderColor = '#10b981';
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.2)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (onOpenMemory) {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }
+          }}
+          title="Click to view & edit persistent SQLite memory"
         >
           <Database size={12} color="#10b981" />
           <span>MEMORY: <strong style={{ color: '#10b981' }}>SQLITE</strong></span>
-        </div>
+        </button>
 
         {/* LLM Engine Badge */}
         <div
