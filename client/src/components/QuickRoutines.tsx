@@ -39,8 +39,8 @@ export const QuickRoutines: React.FC<QuickRoutinesProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(3, 7, 18, 0.82)',
+        backdropFilter: 'blur(12px)',
         zIndex: 100,
         display: 'flex',
         alignItems: 'center',
@@ -50,26 +50,42 @@ export const QuickRoutines: React.FC<QuickRoutinesProps> = ({
       onClick={onClose}
     >
       <div
+        className="hud-panel animate-message"
         style={{
           width: '100%',
-          maxWidth: '540px',
-          background: 'var(--bg-secondary)',
+          maxWidth: '560px',
+          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(9, 14, 26, 0.98) 100%)',
           borderRadius: '20px',
-          border: '1px solid var(--border-subtle)',
-          padding: '24px',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          padding: '26px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 700 }}>Scheduled Routines</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Deterministic workflows that execute skills directly without LLM latency.
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '10px', fontFamily: 'monospace', letterSpacing: '0.12em', color: '#f59e0b', textTransform: 'uppercase' }}>
+                // AUTOMATION PROTOCOLS
+              </span>
+            </div>
+            <h2 style={{ fontSize: '19px', fontWeight: 700, color: '#f8fafc', marginTop: '2px' }}>Scheduled Routines</h2>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+              Deterministic workflows executed autonomously on scheduled cron intervals.
             </p>
           </div>
-          <button onClick={onClose} style={{ padding: '6px', borderRadius: '8px', color: 'var(--text-muted)' }}>
-            <X size={20} />
+          <button
+            onClick={onClose}
+            style={{
+              padding: '8px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+            }}
+          >
+            <X size={18} />
           </button>
         </div>
 

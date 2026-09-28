@@ -157,6 +157,7 @@ export function App() {
           isLoading={isLoading}
           onSendMessage={handleSendMessage}
           isListening={voice.isListening}
+          isSpeaking={voice.isSpeaking}
           isVoiceSupported={voice.isSupported}
           onStartListening={voice.startListening}
           onStopListening={voice.stopListening}

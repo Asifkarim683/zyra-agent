@@ -40,8 +40,8 @@ export const SkillsDrawer: React.FC<SkillsDrawerProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(3, 7, 18, 0.82)',
+        backdropFilter: 'blur(12px)',
         zIndex: 100,
         display: 'flex',
         alignItems: 'center',
@@ -51,41 +51,57 @@ export const SkillsDrawer: React.FC<SkillsDrawerProps> = ({
       onClick={onClose}
     >
       <div
+        className="hud-panel animate-message"
         style={{
           width: '100%',
-          maxWidth: '560px',
-          background: 'var(--bg-secondary)',
+          maxWidth: '580px',
+          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(9, 14, 26, 0.98) 100%)',
           borderRadius: '20px',
-          border: '1px solid var(--border-subtle)',
-          padding: '24px',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(56, 189, 248, 0.35)',
+          padding: '26px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.15)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
                 background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: '0 0 15px rgba(56, 189, 248, 0.2)',
               }}
             >
-              <Layers size={18} color="#38bdf8" />
+              <Layers size={20} color="#38bdf8" />
             </div>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: 700 }}>Installed Skills</h2>
+              <div style={{ fontSize: '10px', fontFamily: 'monospace', letterSpacing: '0.12em', color: '#38bdf8', textTransform: 'uppercase' }}>
+                // SUBSYSTEM REGISTRY
+              </div>
+              <h2 style={{ fontSize: '19px', fontWeight: 700, color: '#f8fafc', marginTop: '1px' }}>Installed Neural Skills</h2>
               <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                Modular handlers dispatched directly by the Intent Router.
+                Modular intent handlers dispatched instantly with zero LLM inference cost.
               </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ padding: '6px', borderRadius: '8px', color: 'var(--text-muted)' }}>
-            <X size={20} />
+          <button
+            onClick={onClose}
+            style={{
+              padding: '8px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+            }}
+          >
+            <X size={18} />
           </button>
         </div>
 
