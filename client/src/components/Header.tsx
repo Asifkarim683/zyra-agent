@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Sparkles, Cpu, Layers, PlayCircle, Database } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, Layers, PlayCircle, Database, Plus } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onToggleTts: () => void;
   onOpenSkills: () => void;
   onOpenRoutines: () => void;
+  onNewChat?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTts,
   onOpenSkills,
   onOpenRoutines,
+  onNewChat,
 }) => {
   return (
     <header
@@ -105,18 +107,18 @@ export const Header: React.FC<HeaderProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
+            padding: '5px 10px',
             borderRadius: '8px',
             background: 'rgba(10, 18, 36, 0.6)',
             border: '1px solid var(--border-subtle)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             color: 'var(--text-secondary)',
             fontFamily: 'var(--font-mono)',
           }}
-          title="Persistent SQLite Long-Term Memory"
+          title="Persistent SQLite Long-Term Memory Active"
         >
-          <Database size={13} color="var(--accent-cyan)" />
-          <span>MEMORY: <strong style={{ color: '#10b981' }}>PERSISTENT</strong></span>
+          <Database size={12} color="#10b981" />
+          <span>MEMORY: <strong style={{ color: '#10b981' }}>SQLITE</strong></span>
         </div>
 
         {/* LLM Engine Badge */}
@@ -125,19 +127,52 @@ export const Header: React.FC<HeaderProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
+            padding: '5px 10px',
             borderRadius: '8px',
             background: 'rgba(10, 18, 36, 0.6)',
             border: '1px solid var(--border-subtle)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             color: 'var(--text-secondary)',
             fontFamily: 'var(--font-mono)',
           }}
-          title="Ollama Local LLM Model"
+          title="Ollama Local LLM Model Active"
         >
-          <Cpu size={13} color="#a855f7" />
-          <span>LLM: <strong style={{ color: '#a855f7' }}>LOCAL (LLAMA 3.2)</strong></span>
+          <Cpu size={12} color="#a855f7" />
+          <span>LLM: <strong style={{ color: '#a855f7' }}>LLAMA 3.2</strong></span>
         </div>
+
+        {/* New Chat Button */}
+        {onNewChat && (
+          <button
+            onClick={onNewChat}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 11px',
+              borderRadius: '8px',
+              background: 'rgba(0, 242, 254, 0.08)',
+              border: '1px solid rgba(0, 242, 254, 0.25)',
+              color: 'var(--accent-cyan)',
+              fontSize: '11px',
+              fontWeight: 600,
+              fontFamily: 'var(--font-mono)',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 242, 254, 0.16)';
+              e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 242, 254, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(0, 242, 254, 0.25)';
+            }}
+            title="Start New Chat Session"
+          >
+            <Plus size={13} />
+            <span>NEW CHAT</span>
+          </button>
+        )}
 
         {/* Routines Button */}
         <button
@@ -145,14 +180,15 @@ export const Header: React.FC<HeaderProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '7px 12px',
+            gap: '5px',
+            padding: '6px 11px',
             borderRadius: '8px',
             background: 'rgba(10, 18, 36, 0.6)',
             border: '1px solid var(--border-subtle)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             fontWeight: 500,
             fontFamily: 'var(--font-mono)',
+            cursor: 'pointer',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = '#f59e0b';
@@ -173,14 +209,15 @@ export const Header: React.FC<HeaderProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '7px 12px',
+            gap: '5px',
+            padding: '6px 11px',
             borderRadius: '8px',
             background: 'rgba(10, 18, 36, 0.6)',
             border: '1px solid var(--border-subtle)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             fontWeight: 500,
             fontFamily: 'var(--font-mono)',
+            cursor: 'pointer',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = 'var(--accent-cyan)';
@@ -199,8 +236,8 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onToggleTts}
           style={{
-            width: '36px',
-            height: '36px',
+            width: '34px',
+            height: '34px',
             borderRadius: '8px',
             background: ttsEnabled ? 'rgba(0, 242, 254, 0.15)' : 'rgba(255, 255, 255, 0.04)',
             border: `1px solid ${ttsEnabled ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
@@ -208,6 +245,7 @@ export const Header: React.FC<HeaderProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: ttsEnabled ? '0 0 12px rgba(0, 242, 254, 0.25)' : 'none',
+            cursor: 'pointer',
           }}
           title={ttsEnabled ? 'Neural Audio Voice Enabled' : 'Neural Voice Muted'}
         >

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Loader2, Radio, Activity } from 'lucide-react';
+import { Send, Mic, MicOff, Loader2, RotateCcw } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { AiOrb3D, type OrbState } from './AiOrb3D';
 import type { ChatMessage } from '../types';
@@ -13,16 +13,8 @@ interface ChatAreaProps {
   isVoiceSupported: boolean;
   onStartListening: () => void;
   onStopListening: () => void;
+  onNewChat?: () => void;
 }
-
-const SAMPLE_PROMPTS = [
-  "What's the weather in Tokyo right now?",
-  'What is the current stock price of Apple?',
-  'What time is it in London?',
-  'Remember that I am building the Zyra agent project',
-  'What do you remember about me?',
-  'Play Bohemian Rhapsody',
-];
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   messages,
@@ -33,6 +25,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   isVoiceSupported,
   onStartListening,
   onStopListening,
+  onNewChat,
 }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -64,7 +57,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const getStatusText = () => {
     if (isListening) return 'NEURAL SENSORS LISTENING';
-    if (isLoading) return 'PROCESSING KNOWLEDGE & RETRIEVAL';
+    if (isLoading) return 'PROCESSING KNOWLEDGE';
     if (isSpeaking) return 'TRANSMITTING NEURAL SPEECH';
     return 'NEURAL CORE SYNCHRONIZED';
   };
@@ -81,9 +74,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 75px)',
+        height: 'calc(100vh - 72px)',
         position: 'relative',
-        maxWidth: '1000px',
+        maxWidth: '920px',
         margin: '0 auto',
         width: '100%',
         padding: '0 20px',
@@ -100,7 +93,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         }}
       >
         {messages.length === 0 ? (
-          /* Empty State: Full Sci-Fi 3D Holographic AI Core */
+          /* Clean Minimalist Empty State: 3D Holographic AI Core */
           <div
             style={{
               margin: 'auto',
@@ -119,18 +112,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 12px',
+                margin: '0 auto 16px',
               }}
             >
-              {/* Radial background aura */}
+              {/* Radial ambient glow */}
               <div
                 style={{
                   position: 'absolute',
-                  width: '380px',
-                  height: '380px',
+                  width: '320px',
+                  height: '320px',
                   borderRadius: '50%',
-                  background: `radial-gradient(circle, ${getStatusColor()}22 0%, transparent 70%)`,
-                  filter: 'blur(30px)',
+                  background: `radial-gradient(circle, ${getStatusColor()}24 0%, transparent 68%)`,
+                  filter: 'blur(35px)',
                   pointerEvents: 'none',
                   transition: 'background 0.5s ease',
                 }}
@@ -138,29 +131,30 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
               <AiOrb3D
                 state={orbState}
+                size={280}
                 onClick={isVoiceSupported ? (isListening ? onStopListening : onStartListening) : undefined}
               />
             </div>
 
-            {/* Futuristic HUD Telemetry Status */}
+            {/* Clean Telemetry Status Pill */}
             <div
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '10px',
-                padding: '6px 18px',
+                gap: '8px',
+                padding: '5px 16px',
                 borderRadius: '999px',
                 background: 'rgba(6, 12, 26, 0.75)',
-                border: `1px solid ${getStatusColor()}44`,
-                boxShadow: `0 0 16px ${getStatusColor()}22`,
-                marginBottom: '14px',
+                border: `1px solid ${getStatusColor()}40`,
+                boxShadow: `0 0 16px ${getStatusColor()}20`,
+                marginBottom: '16px',
                 transition: 'all 0.3s ease',
               }}
             >
               <span
                 style={{
-                  width: '8px',
-                  height: '8px',
+                  width: '7px',
+                  height: '7px',
                   borderRadius: '50%',
                   backgroundColor: getStatusColor(),
                   boxShadow: `0 0 10px ${getStatusColor()}`,
@@ -189,73 +183,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               )}
             </div>
 
-            <h2
+            <h1
               style={{
-                fontSize: '22px',
+                fontSize: '24px',
                 fontWeight: 700,
                 letterSpacing: '-0.02em',
-                marginBottom: '6px',
+                marginBottom: '8px',
                 background: 'linear-gradient(135deg, #ffffff 40%, var(--accent-cyan) 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              ZYRA NEURAL INTERFACE
-            </h2>
+              Zyra Neural Core
+            </h1>
             <p
               style={{
-                fontSize: '13px',
+                fontSize: '13.5px',
                 color: 'var(--text-secondary)',
-                maxWidth: '440px',
+                maxWidth: '460px',
                 lineHeight: 1.6,
-                marginBottom: '22px',
               }}
             >
-              Tap the sphere or speak to engage. Zyra features real-time web retrieval, persistent SQLite memory, and an offline local neural core.
+              Tap the sphere or microphone to speak, or type any command below.
             </p>
-
-            {/* Quick Action Telemetry Chips */}
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-                justifyContent: 'center',
-                maxWidth: '680px',
-              }}
-            >
-              {SAMPLE_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => onSendMessage(prompt)}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(10, 18, 36, 0.65)',
-                    border: '1px solid var(--border-subtle)',
-                    fontSize: '12.5px',
-                    color: 'var(--text-secondary)',
-                    backdropFilter: 'blur(8px)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--accent-cyan)';
-                    e.currentTarget.style.color = '#ffffff';
-                    e.currentTarget.style.boxShadow = '0 0 14px rgba(0, 242, 254, 0.2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                    e.currentTarget.style.color = 'var(--text-secondary)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <Activity size={12} color="var(--accent-cyan)" />
-                  <span>{prompt}</span>
-                </button>
-              ))}
-            </div>
           </div>
         ) : (
           /* Active Chat Stream with Compact Floating Holographic AI Core */
@@ -275,29 +225,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {/* Scaled Mini Orb in Conversation */}
-                <div style={{ width: '48px', height: '48px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ transform: 'scale(0.35)', transformOrigin: 'center center' }}>
-                    <AiOrb3D
-                      state={orbState}
-                      onClick={isVoiceSupported ? (isListening ? onStopListening : onStartListening) : undefined}
-                    />
-                  </div>
-                </div>
+                <AiOrb3D
+                  state={orbState}
+                  size={46}
+                  onClick={isVoiceSupported ? (isListening ? onStopListening : onStartListening) : undefined}
+                />
 
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span
-                      style={{
-                        width: '7px',
-                        height: '7px',
-                        borderRadius: '50%',
-                        backgroundColor: getStatusColor(),
-                        boxShadow: `0 0 8px ${getStatusColor()}`,
-                      }}
-                    />
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc', letterSpacing: '0.04em' }}>
-                      ZYRA NEURAL CORE
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', letterSpacing: '0.02em' }}>
+                      Zyra
                     </span>
                     <span
                       style={{
@@ -307,7 +244,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         borderRadius: '4px',
                         background: `${getStatusColor()}15`,
                         color: getStatusColor(),
-                        border: `1px solid ${getStatusColor()}33`,
+                        border: `1px solid ${getStatusColor()}30`,
+                        fontWeight: 600,
                       }}
                     >
                       {orbState.toUpperCase()}
@@ -319,20 +257,48 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
               </div>
 
-              {/* Soundwave equalizer indicator */}
-              {(isListening || isSpeaking) ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', paddingRight: '8px' }}>
-                  <div className="eq-bar" style={{ animationDelay: '0.1s' }} />
-                  <div className="eq-bar" style={{ animationDelay: '0.3s' }} />
-                  <div className="eq-bar" style={{ animationDelay: '0.5s' }} />
-                  <div className="eq-bar" style={{ animationDelay: '0.2s' }} />
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  <Radio size={12} color="var(--accent-cyan)" />
-                  <span>100% OFFLINE / LIVE WEB</span>
-                </div>
-              )}
+              {/* Status & Reset Button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {(isListening || isSpeaking) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <div className="eq-bar" style={{ animationDelay: '0.1s' }} />
+                    <div className="eq-bar" style={{ animationDelay: '0.3s' }} />
+                    <div className="eq-bar" style={{ animationDelay: '0.5s' }} />
+                    <div className="eq-bar" style={{ animationDelay: '0.2s' }} />
+                  </div>
+                )}
+
+                {onNewChat && (
+                  <button
+                    onClick={onNewChat}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-muted)',
+                      fontSize: '11px',
+                      fontFamily: 'var(--font-mono)',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#ffffff';
+                      e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--text-muted)';
+                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                    }}
+                    title="Start New Chat"
+                  >
+                    <RotateCcw size={12} />
+                    <span>NEW CHAT</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Messages List */}
@@ -365,46 +331,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Quick Action Chips (When Chat is Active) */}
-      {messages.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            gap: '8px',
-            overflowX: 'auto',
-            paddingBottom: '10px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {SAMPLE_PROMPTS.slice(0, 4).map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => onSendMessage(prompt)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                background: 'rgba(10, 18, 36, 0.65)',
-                border: '1px solid var(--border-subtle)',
-                fontSize: '11.5px',
-                color: 'var(--text-secondary)',
-                flexShrink: 0,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent-cyan)';
-                e.currentTarget.style.color = '#ffffff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                e.currentTarget.style.color = 'var(--text-secondary)';
-              }}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Futuristic Sci-Fi Input Dock */}
+      {/* Clean Futuristic Sci-Fi Input Dock */}
       <form
         onSubmit={handleSubmit}
         className="hud-panel"
@@ -436,6 +363,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               flexShrink: 0,
               border: `1px solid ${isListening ? '#10b981' : 'var(--border-subtle)'}`,
               boxShadow: isListening ? '0 0 18px rgba(16, 185, 129, 0.4)' : 'none',
+              cursor: 'pointer',
             }}
             title={isListening ? 'Stop Listening' : 'Speak to Zyra'}
           >
@@ -453,7 +381,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={
-            isListening ? '[AUDIO STREAM ACTIVE] Listening...' : 'Enter prompt or say a command to Zyra...'
+            isListening ? 'Listening to voice stream...' : 'Ask Zyra anything or give a command...'
           }
           disabled={isLoading}
           style={{

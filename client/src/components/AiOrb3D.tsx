@@ -5,11 +5,12 @@ export type OrbState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
 interface AiOrb3DProps {
   state: OrbState;
+  size?: number;
   onClick?: () => void;
   className?: string;
 }
 
-export const AiOrb3D: React.FC<AiOrb3DProps> = ({ state, onClick, className }) => {
+export const AiOrb3D: React.FC<AiOrb3DProps> = ({ state, size = 300, onClick, className }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<OrbState>(state);
   stateRef.current = state;
@@ -18,8 +19,8 @@ export const AiOrb3D: React.FC<AiOrb3DProps> = ({ state, onClick, className }) =
     const container = containerRef.current;
     if (!container) return;
 
-    const width = container.clientWidth || 320;
-    const height = container.clientHeight || 320;
+    const width = size;
+    const height = size;
 
     // 1. Scene, Camera, Renderer
     const scene = new THREE.Scene();
@@ -104,7 +105,7 @@ export const AiOrb3D: React.FC<AiOrb3DProps> = ({ state, onClick, className }) =
     scene.add(ring2);
 
     // 6. Surrounding Quantum Particle Swarm
-    const particleCount = 700;
+    const particleCount = size <= 100 ? 160 : 600;
     const particleGeo = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(particleCount * 3);
     const particleOriginals = new Float32Array(particleCount * 3);
@@ -304,7 +305,7 @@ export const AiOrb3D: React.FC<AiOrb3DProps> = ({ state, onClick, className }) =
       particleGeo.dispose();
       particleMat.dispose();
     };
-  }, []);
+  }, [size]);
 
   return (
     <div
@@ -316,15 +317,16 @@ export const AiOrb3D: React.FC<AiOrb3DProps> = ({ state, onClick, className }) =
         justifyContent: 'center',
         cursor: onClick ? 'pointer' : 'default',
         userSelect: 'none',
+        width: `${size}px`,
+        height: `${size}px`,
       }}
       className={className}
     >
       <div
         ref={containerRef}
         style={{
-          width: '320px',
-          height: '320px',
-          maxWidth: '100%',
+          width: `${size}px`,
+          height: `${size}px`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

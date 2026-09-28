@@ -16,13 +16,20 @@ export function App() {
   const [isRoutinesOpen, setIsRoutinesOpen] = useState(false);
 
   // Generate or load persistent conversationId
-  const [conversationId] = useState<string>(() => {
+  const [conversationId, setConversationId] = useState<string>(() => {
     const saved = localStorage.getItem('zyra_conv_id');
     if (saved) return saved;
     const newId = crypto.randomUUID();
     localStorage.setItem('zyra_conv_id', newId);
     return newId;
   });
+
+  const handleNewChat = useCallback(() => {
+    setMessages([]);
+    const newId = crypto.randomUUID();
+    localStorage.setItem('zyra_conv_id', newId);
+    setConversationId(newId);
+  }, []);
 
   // Initialize voice hook with Zyra's exclusive voice
   const voice = useVoice((spokenText) => {
@@ -149,6 +156,7 @@ export function App() {
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenSkills={() => setIsSkillsOpen(true)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
+        onNewChat={handleNewChat}
       />
 
       <main style={{ flex: 1 }}>
@@ -161,6 +169,7 @@ export function App() {
           isVoiceSupported={voice.isSupported}
           onStartListening={voice.startListening}
           onStopListening={voice.stopListening}
+          onNewChat={handleNewChat}
         />
       </main>
 
