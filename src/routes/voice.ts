@@ -12,18 +12,25 @@ const ttsQuerySchema = z.object({
 });
 
 /**
- * @route GET /api/v1/voice/voices
- * @description Lists curated unique female voices for Zyra.
+ * @route GET /api/v1/voice/info
+ * @description Returns information about Zyra's unique voice.
  */
+voiceRouter.get('/info', (_req, res) => {
+  res.json({
+    voice: voiceService.getVoiceInfo(),
+  });
+});
+
+// Also keep /voices for backwards compatibility returning Zyra
 voiceRouter.get('/voices', (_req, res) => {
   res.json({
-    voices: voiceService.getAvailableVoices(),
+    voices: [voiceService.getVoiceInfo()],
   });
 });
 
 /**
  * @route GET /api/v1/voice/tts
- * @description Generates and streams neural speech MP3 audio for the given text.
+ * @description Generates and streams Zyra's unique neural speech audio.
  */
 voiceRouter.get('/tts', async (req, res, next) => {
   try {
@@ -31,7 +38,7 @@ voiceRouter.get('/tts', async (req, res, next) => {
 
     const audioBuffer = await voiceService.synthesize(
       text,
-      voice,
+      voice || voiceService.voiceId,
       pitch || '+0Hz',
       rate || '+0%'
     );

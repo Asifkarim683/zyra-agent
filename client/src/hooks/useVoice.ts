@@ -6,14 +6,13 @@ interface IWindow extends Window {
   webkitSpeechRecognition?: any;
 }
 
+export const ZYRA_VOICE_ID = 'en-GB-SoniaNeural';
+
 export function useVoice(onSpeechResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isSupported, setIsSupported] = useState(false);
-  const [selectedVoice, setSelectedVoice] = useState<string>(() => {
-    return localStorage.getItem('zyra_voice') || 'en-US-AriaNeural';
-  });
 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -87,13 +86,8 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     }
   }, [isListening]);
 
-  const changeVoice = useCallback((voiceId: string) => {
-    setSelectedVoice(voiceId);
-    localStorage.setItem('zyra_voice', voiceId);
-  }, []);
-
   const speak = useCallback(
-    (text: string, voiceOverride?: string) => {
+    (text: string) => {
       if (!ttsEnabled) return;
 
       // Clean text for speech: strip markdown, code, urls
@@ -108,8 +102,7 @@ export function useVoice(onSpeechResult: (text: string) => void) {
       stopSpeaking();
       setIsSpeaking(true);
 
-      const voice = voiceOverride || selectedVoice;
-      const audioUrl = `/api/v1/voice/tts?text=${encodeURIComponent(cleaned)}&voice=${encodeURIComponent(voice)}`;
+      const audioUrl = `/api/v1/voice/tts?text=${encodeURIComponent(cleaned)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}`;
 
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
@@ -121,10 +114,9 @@ export function useVoice(onSpeechResult: (text: string) => void) {
 
       audio.onerror = () => {
         console.warn('Neural TTS failed, falling back to browser synthesis.');
-        // Browser fallback
         if (window.speechSynthesis) {
           const utterance = new SpeechSynthesisUtterance(cleaned);
-          utterance.rate = 1.05;
+          utterance.rate = 1.0;
           utterance.onend = () => setIsSpeaking(false);
           utterance.onerror = () => setIsSpeaking(false);
 
@@ -132,10 +124,9 @@ export function useVoice(onSpeechResult: (text: string) => void) {
           const preferred = voices.find(
             (v) =>
               v.name.includes('Natural') ||
-              v.name.includes('Google') ||
-              v.name.includes('Samantha') ||
-              v.name.includes('Zira') ||
-              v.name.includes('Jenny')
+              v.name.includes('Google UK English Female') ||
+              v.name.includes('George') ||
+              v.name.includes('Samantha')
           );
           if (preferred) utterance.voice = preferred;
 
@@ -150,15 +141,7 @@ export function useVoice(onSpeechResult: (text: string) => void) {
         setIsSpeaking(false);
       });
     },
-    [ttsEnabled, selectedVoice, stopSpeaking]
-  );
-
-  const previewVoice = useCallback(
-    (voiceId: string) => {
-      const sampleText = 'Hello Eren. This is Zyra speaking with a unique neural voice.';
-      speak(sampleText, voiceId);
-    },
-    [speak]
+    [ttsEnabled, stopSpeaking]
   );
 
   return {
@@ -166,13 +149,10 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     isSpeaking,
     isSupported,
     ttsEnabled,
-    selectedVoice,
     setTtsEnabled,
-    changeVoice,
     startListening,
     stopListening,
     stopSpeaking,
     speak,
-    previewVoice,
   };
 }

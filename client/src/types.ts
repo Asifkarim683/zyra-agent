@@ -43,11 +43,3 @@ export interface RoutineItem {
   actions: RoutineAction[];
   enabled: boolean;
 }
-
-export interface VoiceOption {
-  id: string;
-  name: string;
-  gender: 'Female';
-  accent: string;
-  description: string;
-}

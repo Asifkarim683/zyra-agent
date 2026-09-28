@@ -1,62 +1,25 @@
 import { EdgeTTS } from '@andresaya/edge-tts';
 import { logger } from '../config/logger.js';
 
-export interface VoiceOption {
-  id: string;
-  name: string;
-  gender: 'Female';
-  accent: string;
-  description: string;
-}
-
-export const ZYRA_FEMALE_VOICES: VoiceOption[] = [
-  {
-    id: 'en-US-AriaNeural',
-    name: 'Zyra Prime (Aria)',
-    gender: 'Female',
-    accent: 'American (Clear & Intelligent)',
-    description: 'Crisp, confident, and professional assistant tone. Recommended default.',
-  },
-  {
-    id: 'en-US-JennyNeural',
-    name: 'Zyra Expressive (Jenny)',
-    gender: 'Female',
-    accent: 'American (Warm & Friendly)',
-    description: 'Natural, conversational, and warm tone.',
-  },
-  {
-    id: 'en-GB-SoniaNeural',
-    name: 'Zyra Elegant (Sonia)',
-    gender: 'Female',
-    accent: 'British (Sophisticated & Crisp)',
-    description: 'Refined, calm, British accent inspired by Friday/Jarvis assistants.',
-  },
-  {
-    id: 'en-US-AnaNeural',
-    name: 'Zyra Gentle (Ana)',
-    gender: 'Female',
-    accent: 'American (Soft & Calm)',
-    description: 'Soft-spoken, relaxed, and calm demeanor.',
-  },
-];
+export const ZYRA_VOICE_ID = 'en-GB-SoniaNeural';
 
 export class VoiceService {
-  private defaultVoice = 'en-US-AriaNeural';
+  public readonly voiceId = ZYRA_VOICE_ID;
 
   /**
-   * Generates MP3 audio buffer from text using neural voice synthesis.
+   * Generates MP3 audio buffer from text using Zyra's unique neural voice.
    */
   async synthesize(
     text: string,
-    voice: string = this.defaultVoice,
+    voice: string = this.voiceId,
     pitch: string = '+0Hz',
     rate: string = '+0%'
   ): Promise<Buffer> {
     try {
       const tts = new EdgeTTS();
-      logger.debug(`Synthesizing speech with voice ${voice}: "${text.slice(0, 40)}..."`);
+      logger.debug(`Synthesizing Zyra speech: "${text.slice(0, 40)}..."`);
 
-      await tts.synthesize(text, voice, {
+      await tts.synthesize(text, voice || this.voiceId, {
         pitch,
         rate,
         volume: '+0%',
@@ -71,10 +34,16 @@ export class VoiceService {
   }
 
   /**
-   * Returns available curated female voices for Zyra.
+   * Returns metadata for Zyra's exclusive voice.
    */
-  getAvailableVoices(): VoiceOption[] {
-    return ZYRA_FEMALE_VOICES;
+  getVoiceInfo() {
+    return {
+      id: this.voiceId,
+      name: 'Zyra',
+      gender: 'Female',
+      accent: 'British (Sophisticated & Calm)',
+      description: "Zyra's unique voice persona.",
+    };
   }
 }
 
