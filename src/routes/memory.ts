@@ -5,9 +5,9 @@ import { databaseService } from '../container.js';
 export const memoryRouter = Router();
 
 const memorySchema = z.object({
-  key: z.string().min(1, 'Key is required'),
-  value: z.string().min(1, 'Value is required'),
-  category: z.string().optional(),
+  key: z.string().trim().min(1, 'Key is required').max(100, 'Key must be under 100 characters'),
+  value: z.string().trim().min(1, 'Value is required').max(2000, 'Value must be under 2000 characters'),
+  category: z.string().trim().max(50).optional(),
 });
 
 /**
@@ -45,7 +45,7 @@ memoryRouter.post('/', (req, res, next) => {
  * @description Removes a memory fact by key.
  */
 memoryRouter.delete('/:key', (req, res) => {
-  const key = req.params.key;
+  const key = String(req.params.key || '').slice(0, 100);
   databaseService.deleteMemory(key);
   res.json({
     message: `Memory "${key}" removed`,
@@ -57,7 +57,8 @@ memoryRouter.delete('/:key', (req, res) => {
  * @description Lists saved conversations and last message preview.
  */
 memoryRouter.get('/conversations', (req, res) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const rawLimit = Number(req.query.limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 100) : 20;
   const conversations = databaseService.listConversations(limit);
   res.json({
     conversations,
@@ -69,7 +70,7 @@ memoryRouter.get('/conversations', (req, res) => {
  * @description Retrieves full turn history for a conversation.
  */
 memoryRouter.get('/conversations/:id', (req, res) => {
-  const id = req.params.id;
+  const id = String(req.params.id || '').slice(0, 100);
   const turns = databaseService.getTurns(id, 50);
   res.json({
     conversationId: id,

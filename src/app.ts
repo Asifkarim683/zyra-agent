@@ -24,7 +24,8 @@ export function createApp(): Express {
         })
     );
     app.use(cors());
-    app.use(express.json());
+    app.use(express.json({ limit: '500kb' }));
+    app.use(express.urlencoded({ extended: true, limit: '500kb' }));
 
     // Request logging middleware
     app.use(requestLogger);

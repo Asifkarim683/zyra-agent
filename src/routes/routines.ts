@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import cron from 'node-cron';
 import { v4 as uuidv4 } from 'uuid';
 import { schedulerService } from '../container.js';
 import type { RoutineConfig } from '../types/index.js';
@@ -7,15 +8,21 @@ import type { RoutineConfig } from '../types/index.js';
 export const routinesRouter = Router();
 
 const routineActionSchema = z.object({
-  skill: z.string().min(1, 'Skill name is required'),
-  intent: z.string().default(''),
-  parameters: z.record(z.string()).default({}),
+  skill: z.string().trim().min(1, 'Skill name is required').max(100),
+  intent: z.string().trim().max(100).default(''),
+  parameters: z.record(z.string().max(500)).default({}),
 });
 
 const routineSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  cronExpression: z.string().min(1, 'Cron expression is required'),
-  actions: z.array(routineActionSchema).min(1, 'At least one action is required'),
+  name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be under 100 characters'),
+  cronExpression: z
+    .string()
+    .trim()
+    .min(1, 'Cron expression is required')
+    .refine((expr) => cron.validate(expr), {
+      message: 'Invalid cron expression format (must follow standard 5-part cron syntax)',
+    }),
+  actions: z.array(routineActionSchema).min(1, 'At least one action is required').max(10, 'Maximum 10 actions per routine'),
   enabled: z.boolean().default(true),
 });
 

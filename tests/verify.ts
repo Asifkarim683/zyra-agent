@@ -6,6 +6,7 @@ import {
   schedulerService,
   conversationManager,
 } from '../src/container.js';
+import { isPrivateIp, WebService } from '../src/services/web-service.js';
 import type { Server } from 'http';
 
 async function runTests() {
@@ -200,6 +201,58 @@ async function runTests() {
     const memoryJson = await memoryRes.json();
     assert(memoryRes.status === 200, 'GET /api/v1/memory returns 200');
     assert(typeof memoryJson.memories === 'object', 'Memory endpoint returns memories object');
+
+    // 7. Test Security & Defensive Hardening
+    console.log('\n[7] Testing Security & Defensive Hardening...');
+    // SSRF checks
+    assert(isPrivateIp('127.0.0.1'), 'SSRF guard flags 127.0.0.1 as private');
+    assert(isPrivateIp('10.0.1.5'), 'SSRF guard flags 10.x.x.x as private');
+    assert(isPrivateIp('192.168.1.1'), 'SSRF guard flags 192.168.x.x as private');
+    assert(isPrivateIp('169.254.169.254'), 'SSRF guard flags cloud metadata IP as private');
+    assert(!isPrivateIp('8.8.8.8'), 'SSRF guard permits public IP');
+
+    const testWebService = new WebService();
+    let ssrfBlocked = false;
+    try {
+      await testWebService.extractUrl('http://127.0.0.1:11434');
+    } catch {
+      ssrfBlocked = true;
+    }
+    assert(ssrfBlocked, 'WebService blocks direct SSRF against loopback IP (127.0.0.1)');
+
+    let localhostBlocked = false;
+    try {
+      await testWebService.extractUrl('http://localhost:3000');
+    } catch {
+      localhostBlocked = true;
+    }
+    assert(localhostBlocked, 'WebService blocks direct SSRF against localhost');
+
+    // Invalid cron validation
+    const badCronRes = await fetch(`http://localhost:${testPort}/api/v1/routines`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Bad Routine',
+        cronExpression: 'not a valid cron',
+        actions: [{ skill: 'time', intent: 'get_time', parameters: {} }],
+      }),
+    });
+    assert(badCronRes.status === 400, 'POST /api/v1/routines rejects invalid cron with 400 Bad Request');
+
+    // Chat max length bounds
+    const hugeMsgRes = await fetch(`http://localhost:${testPort}/api/v1/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'x'.repeat(4500) }),
+    });
+    assert(hugeMsgRes.status === 400, 'POST /api/v1/chat rejects message exceeding max limit with 400 Bad Request');
+
+    // Voice max length bounds
+    const hugeTtsRes = await fetch(
+      `http://localhost:${testPort}/api/v1/voice/tts?text=${encodeURIComponent('x'.repeat(1200))}`
+    );
+    assert(hugeTtsRes.status === 400, 'GET /api/v1/voice/tts rejects text exceeding max limit with 400 Bad Request');
 
   } finally {
     server.close();

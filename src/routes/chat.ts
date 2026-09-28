@@ -6,7 +6,7 @@ import { orchestrator, conversationManager } from '../container.js';
 export const chatRouter = Router();
 
 const chatRequestSchema = z.object({
-  message: z.string().min(1, 'Message cannot be empty'),
+  message: z.string().trim().min(1, 'Message cannot be empty').max(4000, 'Message cannot exceed 4000 characters'),
   conversationId: z.string().uuid().optional(),
 });
 

@@ -47,6 +47,13 @@ export class SchedulerService {
     }
 
     if (routine.enabled) {
+      if (!cron.validate(routine.cronExpression)) {
+        logger.error(
+          `Invalid cron expression for routine "${routine.name}" (${routine.id}): "${routine.cronExpression}". Skipping schedule.`
+        );
+        return;
+      }
+
       const job = cron.schedule(routine.cronExpression, async () => {
         logger.info(`Running scheduled routine: ${routine.name} (${routine.id})`);
         await this.executeRoutineActions(routine);

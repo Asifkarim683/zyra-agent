@@ -5,10 +5,10 @@ import { voiceService } from '../services/voice-service.js';
 export const voiceRouter = Router();
 
 const ttsQuerySchema = z.object({
-  text: z.string().min(1, 'Text parameter is required'),
-  voice: z.string().optional(),
-  pitch: z.string().optional(),
-  rate: z.string().optional(),
+  text: z.string().trim().min(1, 'Text parameter is required').max(1000, 'Text exceeds maximum limit of 1000 characters'),
+  voice: z.string().max(100).optional(),
+  pitch: z.string().max(20).optional(),
+  rate: z.string().max(20).optional(),
 });
 
 /**

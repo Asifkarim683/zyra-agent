@@ -1,3 +1,6 @@
+import dns from 'dns';
+import net from 'net';
+import { URL } from 'url';
 import { logger } from '../config/logger.js';
 
 export interface WebSearchResult {
@@ -10,6 +13,130 @@ export interface ExtractedWebpage {
   title: string;
   content: string;
   url: string;
+}
+
+/**
+ * Checks whether an IP address belongs to private, loopback, link-local, or restricted ranges.
+ */
+export function isPrivateIp(ip: string): boolean {
+  const version = net.isIP(ip);
+  if (version === 4) {
+    const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some(isNaN)) return true;
+    const [b0, b1] = parts;
+    // 0.0.0.0/8 (Broadcast/Current network)
+    if (b0 === 0) return true;
+    // 10.0.0.0/8 (Private)
+    if (b0 === 10) return true;
+    // 127.0.0.0/8 (Loopback)
+    if (b0 === 127) return true;
+    // 169.254.0.0/16 (Link-local / Cloud metadata)
+    if (b0 === 169 && b1 === 254) return true;
+    // 172.16.0.0/12 (Private)
+    if (b0 === 172 && b1 >= 16 && b1 <= 31) return true;
+    // 192.168.0.0/16 (Private)
+    if (b0 === 192 && b1 === 168) return true;
+    // 100.64.0.0/10 (Carrier-grade NAT)
+    if (b0 === 100 && b1 >= 64 && b1 <= 127) return true;
+    // 224.0.0.0/4 (Multicast) & 240.0.0.0/4 (Reserved)
+    if (b0 >= 224) return true;
+    return false;
+  } else if (version === 6) {
+    const lower = ip.toLowerCase();
+    // Loopback / unspecified
+    if (lower === '::1' || lower === '::') return true;
+    // IPv4-mapped IPv6 (e.g., ::ffff:127.0.0.1)
+    if (lower.startsWith('::ffff:')) {
+      const ipv4Part = lower.slice(7);
+      if (net.isIPv4(ipv4Part)) {
+        return isPrivateIp(ipv4Part);
+      }
+    }
+    // Unique local address (fc00::/7)
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true;
+    // Link-local (fe80::/10)
+    if (
+      lower.startsWith('fe8') ||
+      lower.startsWith('fe9') ||
+      lower.startsWith('fea') ||
+      lower.startsWith('feb')
+    ) {
+      return true;
+    }
+    return false;
+  }
+  return true; // Not recognized as valid IP, treat defensively as unsafe
+}
+
+/**
+ * Validates that a URL does not target localhost, private subnets, cloud metadata, or internal hostnames.
+ * Guards against Server-Side Request Forgery (SSRF).
+ */
+export async function assertSafeUrl(urlString: string): Promise<void> {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    throw new Error('Invalid URL format');
+  }
+
+  // 1. Strict protocol check: only http and https allowed
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(
+      `Forbidden protocol "${parsed.protocol}". Only HTTP and HTTPS are permitted.`
+    );
+  }
+
+  // 2. Reject credentials in URL
+  if (parsed.username || parsed.password) {
+    throw new Error('URLs containing embedded credentials are not allowed.');
+  }
+
+  const hostname = parsed.hostname.toLowerCase().trim();
+  if (!hostname) {
+    throw new Error('Missing hostname in URL.');
+  }
+
+  // 3. Block known loopback and internal hostname patterns
+  if (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.internal') ||
+    hostname.endsWith('.lan') ||
+    hostname.endsWith('.home.arpa') ||
+    hostname.endsWith('.corp')
+  ) {
+    throw new Error(`Access to local or internal domain "${hostname}" is prohibited.`);
+  }
+
+  // 4. If hostname is an IP literal, evaluate directly
+  if (net.isIP(hostname)) {
+    if (isPrivateIp(hostname)) {
+      throw new Error(
+        `Access to private or loopback IP "${hostname}" is prohibited for security.`
+      );
+    }
+    return;
+  }
+
+  // 5. DNS resolution check (prevents DNS rebinding to private addresses)
+  try {
+    const addresses = await dns.promises.lookup(hostname, { all: true });
+    for (const addr of addresses) {
+      if (isPrivateIp(addr.address)) {
+        throw new Error(
+          `Domain "${hostname}" resolves to private address "${addr.address}", access denied.`
+        );
+      }
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes('access denied')) {
+      throw err;
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Unable to resolve host "${hostname}": ${msg}`);
+  }
 }
 
 /**
@@ -210,17 +337,42 @@ export class WebService {
   async extractUrl(url: string, maxLength = 4000): Promise<ExtractedWebpage> {
     logger.info(`Extracting web content from URL: ${url}`);
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': this.userAgent,
-          Accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-        signal: AbortSignal.timeout(8000),
-      });
+      let currentUrl = url;
+      let hops = 0;
+      const maxHops = 3;
+      let response: Response | null = null;
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      while (hops <= maxHops) {
+        // Assert current URL is safe from SSRF before every request/redirect hop
+        await assertSafeUrl(currentUrl);
+
+        response = await fetch(currentUrl, {
+          redirect: 'manual',
+          headers: {
+            'User-Agent': this.userAgent,
+            Accept:
+              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+
+        // Safe redirect tracking with SSRF re-validation
+        if ([301, 302, 303, 307, 308].includes(response.status)) {
+          const location = response.headers.get('location');
+          if (!location) {
+            throw new Error(`Redirect with missing Location header (status ${response.status})`);
+          }
+          currentUrl = new URL(location, currentUrl).toString();
+          hops++;
+          continue;
+        }
+
+        break;
+      }
+
+      if (!response || !response.ok) {
+        const status = response ? `${response.status} ${response.statusText}` : 'No response';
+        throw new Error(`HTTP ${status}`);
       }
 
       const html = await response.text();
@@ -238,7 +390,7 @@ export class WebService {
       return {
         title,
         content,
-        url,
+        url: currentUrl,
       };
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
