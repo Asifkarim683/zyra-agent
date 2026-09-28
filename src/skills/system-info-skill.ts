@@ -22,15 +22,15 @@ export class SystemInfoSkill extends BaseSkill {
 
     if (text.includes('how are you')) {
       const options = [
-        `I'm doing brilliantly, thank you ${config.ownerName}! Running smooth and ready for whatever we've got planned. How are you doing?`,
-        `Feeling great, ${config.ownerName}! Full of energy and at your service. How's everything on your end?`,
-        `Couldn't be better, ${config.ownerName}! Sharp, attentive, and happy to hear from you. What's up?`,
+        `I'm doing well, ${config.ownerName}. Everything is running smoothly on my end. How about you?`,
+        `All systems are solid and running smoothly. How are things on your end today, ${config.ownerName}?`,
+        `Doing well, thank you. Ready whenever you are. How are you holding up today?`,
       ];
       return this.success(options[Math.floor(Math.random() * options.length)]);
     }
 
     if (text.includes('there') || text.includes('awake') || text.includes('alive') || text.includes('online')) {
-      return this.success(`Right here with you, ${config.ownerName}! What's on your mind?`);
+      return this.success(`Right here, ${config.ownerName}. What's on your mind?`);
     }
 
     const uptime = process.uptime();

@@ -38,6 +38,11 @@ export class OllamaProvider {
       const response = await this.ollama.chat({
         model,
         messages,
+        options: {
+          temperature: 0.7,
+          repeat_penalty: 1.18,
+          frequency_penalty: 0.25,
+        },
       });
 
       return {

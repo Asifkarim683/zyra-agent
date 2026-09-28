@@ -127,7 +127,7 @@ export class Orchestrator {
                             ...priorTurns,
                             {
                                 role: 'user',
-                                content: `${input}\n\n[REAL-TIME WEB DATA]:\n${snippets}\n\nInstructions: Answer Eren in your natural, friendly British voice using the live facts above. Do NOT say 'According to web results' or list URLs. Speak naturally like you already know the answer.`,
+                                content: `${input}\n\n[REAL-TIME WEB DATA]:\n${snippets}\n\nInstructions: Answer ${config.ownerName} directly and naturally using the live facts above. Speak in a calm, articulate, intelligent voice. Do NOT say 'According to web results' or list URLs, do NOT use the word 'mate', and do NOT start with canned flattery like 'Great question'. Give the factual takeaway straight away.`,
                                 timestamp: new Date()
                             }
                         ];
