@@ -1,0 +1,211 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}</style><style>:root{color-scheme:light dark;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}}:root[data-theme="dark"]{color-scheme:dark;--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}:root[data-theme="light"]{color-scheme:light}@media print{:root,:root[data-theme="dark"]{color-scheme:light;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}}body{background:var(--md-bg);color:var(--md-text);max-width:720px;margin:0 auto;padding:32px;display:flex;flex-direction:column;gap:10px;font:14px/1.55 -apple-system,BlinkMacSystemFont,'SF Pro','Segoe UI',sans-serif;overflow-wrap:break-word}body>:first-child{margin-top:0}h1,h2,h3,h4,h5,h6{margin:6px 0 0;line-height:1.25;font-weight:600;text-wrap:balance}h1{font-size:1.35em}h2{font-size:1.15em;color:var(--md-muted)}h3,h4,h5,h6{font-size:1em}p,ul,ol,blockquote,table,pre,hr{margin:0}strong{font-weight:600}a{color:var(--md-link);text-decoration:none}a:hover{text-decoration:underline}ul,ol{display:flex;flex-direction:column;gap:6px;padding-left:22px}ul{list-style:disc}ol{list-style:decimal}:is(li,td,th)>*+:is(p,ul,ol,blockquote){margin-top:6px}blockquote{display:flex;flex-direction:column;gap:10px;border-left:2px solid var(--md-rule);padding-left:10px;color:var(--md-muted)}:not(pre)>code{background:var(--md-fill);padding:1px 3px;border-radius:4px;font:.92em 'SF Mono',ui-monospace,Menlo,Consolas,monospace}a>code{background:none;color:inherit}pre{background:var(--md-fill);padding:10px 12px;border-radius:6px;overflow-x:auto;font:12px/1.5 'SF Mono',ui-monospace,Menlo,Consolas,monospace;margin-block:4px}pre code{background:none;padding:0;font:inherit}table{width:100%;border-collapse:separate;border-spacing:2px;font:inherit}th,td{padding:6px 8px;border-radius:3px;text-align:left;vertical-align:top}th{background:var(--md-fill-strong);font-weight:600}td{background:var(--md-fill)}:is(th,td) :not(pre)>code{background:transparent}hr{border:0;border-top:1px solid var(--md-rule-strong);margin-block:10px}img{max-width:100%;height:auto;border-radius:4px}</style>
+</head><body>
+<h1>PRD: Personal AI Assistant — &quot;Zyra&quot;</h1>
+<p><strong>Repo:</strong> github.com/Asifkarim683 — suggested repo name: <code>zyra-assistant</code></p>
+<h2>1. Overview</h2>
+<p>A personal, voice/text-interactive AI assistant that responds to commands, automates routines (e.g., morning music + greeting), and eventually ships as a mobile app. Zyra: a proactive, conversational assistant integrated into daily life — voice/text commands, scheduled routines, and (later) a mobile app. Built hybrid: deterministic routines run locally with no LLM call; open-ended conversation goes through an LLM (local or Claude API).</p>
+<h2>2. Goals</h2>
+<ul>
+<li>Let Eren interact with the assistant via voice or text and get fast, useful responses.</li>
+<li>Automate scheduled actions (alarms, music, greetings) without manual triggering, and without depending on network/LLM availability.</li>
+<li>Build toward a mobile app once the core engine is stable.</li>
+<li>Treat security (auth, data storage, permissions, command execution) as a first-class requirement.</li>
+<li>Keep the system efficient: route simple commands directly to skills, reserve LLM calls for things that actually need reasoning.</li>
+</ul>
+<h2>3. Non-Goals (v1)</h2>
+<ul>
+<li>Full smart-home control (lights, thermostats) — future phase.</li>
+<li>Multi-user support — single-user assistant for now.</li>
+<li>Fully offline v1 — offline is a supported <em>mode</em>, not the only mode (see Section 8).</li>
+</ul>
+<h2>4. Target Platforms</h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Platform</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Phase 1</td>
+<td>Desktop/local app or web dashboard</td>
+<td>Core brain + voice/text interface</td>
+</tr>
+<tr>
+<td>Phase 2</td>
+<td>Mobile app (Android first, given dev background)</td>
+<td>Wraps same backend via API</td>
+</tr>
+</tbody>
+</table>
+<h2>5. Core Features</h2>
+<h3>5.1 Intent Router (new — do this first)</h3>
+<p>Before anything hits the LLM, a lightweight router pattern-matches the input:</p>
+<ul>
+<li>Matches a known command (&quot;play music&quot;, &quot;set alarm&quot;, &quot;what time is it&quot;) → dispatch directly to the skill, no LLM call. Fast, cheap, and works even if the LLM/network is down.</li>
+<li>No match → forward to the LLM reasoning layer for open-ended conversation/intent parsing.
+This is the single biggest efficiency win: most personal-assistant traffic is simple commands, not open-ended chat.</li>
+</ul>
+<h3>5.2 Conversational Interface</h3>
+<ul>
+<li>Accepts voice input (speech-to-text) and/or typed text.</li>
+<li>Unmatched input goes to an LLM (Claude API, or a local model — see Section 8) for reasoning + response generation.</li>
+<li>Text-to-speech reads responses back aloud.</li>
+<li>Maintains short-term conversation context (last N turns) for follow-ups.</li>
+<li><strong>Streaming + barge-in</strong>: stream TTS output token-by-token rather than waiting for the full response; detect the wake word mid-playback so Eren can interrupt and redirect instead of waiting it out.</li>
+</ul>
+<h3>5.3 Scheduled Routines</h3>
+<ul>
+<li>Cron-like scheduler (<code>node-cron</code>, or OS-level scheduled task) triggers actions at set times.</li>
+<li>Example: 7:00 AM weekday alarm → play music playlist → TTS says &quot;Good morning, Eren&quot; (Zyra's voice).</li>
+<li>Schedules configurable (add/edit/delete times, playlists, messages) via command or config file.</li>
+<li>Routines call skills directly (bypass the LLM entirely) — deterministic and reliable.</li>
+</ul>
+<h3>5.4 Music Playback</h3>
+<ul>
+<li>Integrates with a music source: local files, or a service API (Spotify Web API is the practical choice given OAuth + playback control support).</li>
+<li>Commands like &quot;play something upbeat&quot; map to playlist/genre selection.</li>
+</ul>
+<h3>5.5 Skill System (modular)</h3>
+<ul>
+<li>Each skill (music, alarms, weather, reminders, web search, later: vision, memory-lookup) is a self-contained handler the router dispatches to.</li>
+<li>New skills plug in without touching core routing logic.</li>
+<li><strong>Command validation/allowlisting</strong>: skills that execute system-level actions validate and allowlist inputs — no arbitrary shell execution from parsed LLM output. Reject dangerous constructs outright rather than trying to sanitize them.</li>
+</ul>
+<h3>5.6 Memory (Phase 2+)</h3>
+<ul>
+<li>Short-term: rolling conversation context (in-memory or session table).</li>
+<li>Long-term: lightweight vector store (e.g., a local embeddings DB) for preferences and past interactions, so the assistant improves with use rather than starting fresh every session.</li>
+</ul>
+<h3>5.7 Vision Skill (future)</h3>
+<ul>
+<li>Optional local vision model skill (&quot;what's on my screen&quot;) — same skill-dispatch pattern as everything else, just another modular handler.</li>
+</ul>
+<h3>5.8 Mobile App (Phase 3)</h3>
+<ul>
+<li>Thin client that talks to the backend over authenticated API calls.</li>
+<li>Push notifications for reminders/alarms.</li>
+<li>Voice input via device mic.</li>
+<li>Device-level auth (PIN/biometric) before the app can issue commands.</li>
+</ul>
+<h2>6. Security Requirements</h2>
+<ul>
+<li><strong>Authentication</strong>: Backend API requires a token (JWT or API key) for every request; no open endpoints.</li>
+<li><strong>Secrets management</strong>: API keys (LLM provider, Spotify, etc.) stored in environment variables / a secrets manager — never hardcoded or committed to Git.</li>
+<li><strong>Least privilege on integrations</strong>: OAuth scopes limited to only what's needed (e.g., playback control, not full account access).</li>
+<li><strong>Local data encryption</strong>: Conversation logs, schedules, and personal data encrypted at rest.</li>
+<li><strong>Network security</strong>: HTTPS only for any API the mobile app or web client talks to.</li>
+<li><strong>Command allowlisting</strong>: system-executing skills validate/allowlist parsed intents before execution (see 5.5) — this is the pattern to build in from day one, not retrofit later.</li>
+<li><strong>Low-power/idle mode</strong>: when idle, unload the LLM from memory and shorten model residency, keeping only wake-word detection active — reduces attack surface and resource use simultaneously.</li>
+<li><strong>Access control for mobile app</strong>: device-level auth before the app can issue commands.</li>
+<li><strong>Audit trail</strong>: log executed commands (not raw sensitive content) so you can review what the assistant did and when.</li>
+</ul>
+<h2>7. High-Level Architecture</h2>
+<pre><code>[Voice/Text Input] → [STT (if voice)] → [Intent Router]
+                                            ↓
+                         matched? ──yes──→ [Skill Dispatcher] → [Music] [Alarm] [Other Skills]
+                                            ↓ no
+                          [LLM Reasoning Layer (Claude API / local)]
+                                            ↓
+                                    [Skill Dispatcher] (if action needed)
+                                            ↓
+                                    [TTS Output / App UI]
+
+[Scheduler] → triggers Skill Dispatcher directly, bypassing router + LLM entirely
+</code></pre>
+<h2>8. Offline Mode</h2>
+<p>Fully offline is achievable — several open-source &quot;Jarvis&quot; clones already prove this pattern out:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Cloud (default)</th>
+<th>Offline alternative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reasoning</td>
+<td>Claude API</td>
+<td>Ollama + small quantized model (qwen2.5:3b/7b, llama3.2)</td>
+</tr>
+<tr>
+<td>Speech-to-text</td>
+<td>Cloud STT</td>
+<td>Whisper / whisper.cpp (runs locally, CPU is fine)</td>
+</tr>
+<tr>
+<td>Text-to-speech</td>
+<td>Cloud TTS</td>
+<td>Piper (local, natural-sounding)</td>
+</tr>
+<tr>
+<td>Wake word</td>
+<td>n/a</td>
+<td>Porcupine or openWakeWord (always local)</td>
+</tr>
+</tbody>
+</table>
+<p>Recommended approach: build the skill/routine layer to be offline-capable by default (it never needed the LLM anyway), and make the LLM backend swappable — Claude API when online for best quality, Ollama fallback when offline or for privacy-sensitive queries. A config flag (<code>LLM_MODE=cloud|local</code>) is enough to start.</p>
+<h2>9. Tech Stack Recommendation (given your background)</h2>
+<ul>
+<li><strong>Backend</strong>: Laravel or Spring Boot (you already know both).</li>
+<li><strong>Frontend/dashboard</strong>: React.</li>
+<li><strong>LLM</strong>: Claude API (cloud) + Ollama (offline fallback).</li>
+<li><strong>STT/TTS</strong>: Whisper/whisper.cpp + Piper for offline; Web Speech API for quick prototyping.</li>
+<li><strong>Mobile</strong>: React Native, to reuse JS/React knowledge.</li>
+<li><strong>Database</strong>: MySQL for structured data; a lightweight local vector store for long-term memory.</li>
+</ul>
+<h2>10. Milestones / Repo Phases</h2>
+<p>Suggested phase-by-phase structure for <code>github.com/Asifkarim683/zyra-assistant</code>, so each phase can be its own branch/PR/release:</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Branch/Tag</th>
+<th>Deliverable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>phase-1-router</code></td>
+<td>v0.1</td>
+<td>Intent router + text command interface, LLM fallback via Claude API</td>
+</tr>
+<tr>
+<td><code>phase-2-routines</code></td>
+<td>v0.2</td>
+<td>Scheduler + morning routine (music + greeting), skill system scaffolded</td>
+</tr>
+<tr>
+<td><code>phase-3-voice</code></td>
+<td>v0.3</td>
+<td>Voice input/output (STT/TTS), wake word, streaming + barge-in</td>
+</tr>
+<tr>
+<td><code>phase-4-security</code></td>
+<td>v0.4</td>
+<td>Auth, secrets management, command allowlisting, encryption, audit log</td>
+</tr>
+<tr>
+<td><code>phase-5-offline</code></td>
+<td>v0.5</td>
+<td>Ollama/Whisper/Piper offline mode, <code>LLM_MODE</code> config switch</td>
+</tr>
+<tr>
+<td><code>phase-6-mobile</code></td>
+<td>v1.0</td>
+<td>React Native app wrapping the backend API</td>
+</tr>
+</tbody>
+</table>
+<h2>11. Open Questions</h2>
+<ul>
+<li>Which music source: local files vs. Spotify API vs. YouTube Music?</li>
+<li>Cloud-only for v1, or offline mode from the start?</li>
+<li>Should the assistant get calendar/email access eventually, or stay scoped to music + alarms + Q&amp;A for v1?</li>
+</ul>
+
+</body></html>
