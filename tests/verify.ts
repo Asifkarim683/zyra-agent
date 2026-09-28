@@ -34,6 +34,7 @@ async function runTests() {
   assert(skillRegistry.has('control'), 'Control skill exists');
   assert(skillRegistry.has('system-info'), 'System info skill exists');
   assert(skillRegistry.has('weather'), 'Weather skill exists');
+  assert(skillRegistry.has('memory'), 'Memory skill exists');
 
   // 2. Test Intent Router
   console.log('\n[2] Testing Intent Router...');
@@ -42,6 +43,8 @@ async function runTests() {
     { input: 'what time is it in Tokyo', expectedSkill: 'time', expectedIntent: 'get_time' },
     { input: 'time in Paris', expectedSkill: 'time', expectedIntent: 'get_time' },
     { input: 'what is the weather in London', expectedSkill: 'weather', expectedIntent: 'check_weather' },
+    { input: 'remember that my favorite color is emerald green', expectedSkill: 'memory', expectedIntent: 'remember_fact' },
+    { input: 'what do you remember about me', expectedSkill: 'memory', expectedIntent: 'recall_all' },
     { input: 'current time', expectedSkill: 'time', expectedIntent: 'get_time' },
     { input: 'what is today date', expectedSkill: 'time', expectedIntent: 'get_date' },
     { input: 'play Bohemian Rhapsody', expectedSkill: 'music', expectedIntent: 'play_music' },
@@ -89,12 +92,25 @@ async function runTests() {
   assert(weatherResult.provider === 'skill', 'Weather routed to skill');
   assert(weatherResult.response.includes('London') && weatherResult.response.includes('°C'), 'Weather returned live temperature for London', weatherResult.response);
 
-  // 4. Test Conversation History
-  console.log('\n[4] Testing Conversation Manager...');
+  // Test Memory Skill Execution
+  const memoryResult = await orchestrator.process('remember that my favorite color is emerald green', convId);
+  assert(memoryResult.provider === 'skill', 'Memory routed to skill');
+  assert(memoryResult.response.includes('emerald green') || memoryResult.response.includes('memory') || memoryResult.response.includes('Eren'), 'Memory confirmed saving fact', memoryResult.response);
+
+  // 4. Test Conversation History & SQLite Persistence
+  console.log('\n[4] Testing Conversation Manager & SQLite Persistence...');
   const history = conversationManager.getHistory(convId);
-  assert(history.length === 10, 'History recorded 5 user and 5 assistant turns', `Length: ${history.length}`);
+  assert(history.length >= 10, 'History recorded conversation turns', `Length: ${history.length}`);
   assert(history[0].role === 'user', 'First turn was user');
   assert(history[1].role === 'assistant', 'Second turn was assistant');
+
+  // Test SQLite persistence across fresh instance
+  const { DatabaseService } = await import('../src/services/database.js');
+  const { ConversationManager } = await import('../src/core/conversation-manager.js');
+  const freshDb = new DatabaseService();
+  const freshConvMgr = new ConversationManager(10, freshDb);
+  const reloadedHistory = freshConvMgr.getHistory(convId);
+  assert(reloadedHistory.length >= 10, 'Reloaded history persisted across instances via SQLite', `Length: ${reloadedHistory.length}`);
 
   // 5. Test Scheduler Service
   console.log('\n[5] Testing Scheduler Service...');
@@ -178,6 +194,12 @@ async function runTests() {
 
     // Clean up routine
     await fetch(`http://localhost:${testPort}/api/v1/routines/${routineJson.id}`, { method: 'DELETE' });
+
+    // Test Memory HTTP endpoint
+    const memoryRes = await fetch(`http://localhost:${testPort}/api/v1/memory`);
+    const memoryJson = await memoryRes.json();
+    assert(memoryRes.status === 200, 'GET /api/v1/memory returns 200');
+    assert(typeof memoryJson.memories === 'object', 'Memory endpoint returns memories object');
 
   } finally {
     server.close();

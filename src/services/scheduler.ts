@@ -2,19 +2,60 @@ import cron from 'node-cron';
 import { logger } from '../config/logger.js';
 import type { RoutineConfig, SkillResult } from '../types/index.js';
 import type { SkillRegistry } from '../core/skill-registry.js';
+import type { DatabaseService } from './database.js';
 
 /**
  * Cron Scheduler Service for managing and executing routines.
- * Routines call skills directly via the SkillRegistry — bypassing the LLM entirely,
- * as per the PRD: deterministic and reliable.
+ * Routines call skills directly via the SkillRegistry — bypassing the LLM entirely.
+ * Backed by persistent SQLite storage so alarms and routines survive restarts.
  */
 export class SchedulerService {
   private routines: Map<string, RoutineConfig> = new Map();
   private activeJobs: Map<string, cron.ScheduledTask> = new Map();
   private skillRegistry: SkillRegistry;
+  private dbService?: DatabaseService;
 
-  constructor(skillRegistry: SkillRegistry) {
+  constructor(skillRegistry: SkillRegistry, dbService?: DatabaseService) {
     this.skillRegistry = skillRegistry;
+    this.dbService = dbService;
+
+    // Auto-load persisted routines from SQLite database
+    if (this.dbService) {
+      try {
+        const stored = this.dbService.getRoutines();
+        logger.info(`Loading ${stored.length} persisted routines from SQLite...`);
+        for (const r of stored) {
+          this.scheduleJob(r);
+        }
+      } catch (err: unknown) {
+        logger.warn(`Failed to auto-load persisted routines: ${err}`);
+      }
+    }
+  }
+
+  /**
+   * Schedules a routine's cron job internally.
+   */
+  private scheduleJob(routine: RoutineConfig): void {
+    this.routines.set(routine.id, routine);
+
+    // Stop existing job if rescheduling
+    const existing = this.activeJobs.get(routine.id);
+    if (existing) {
+      existing.stop();
+      this.activeJobs.delete(routine.id);
+    }
+
+    if (routine.enabled) {
+      const job = cron.schedule(routine.cronExpression, async () => {
+        logger.info(`Running scheduled routine: ${routine.name} (${routine.id})`);
+        await this.executeRoutineActions(routine);
+      });
+      this.activeJobs.set(routine.id, job);
+      logger.info(`Scheduled routine: ${routine.name} with cron ${routine.cronExpression}`);
+    } else {
+      logger.info(`Routine loaded but disabled: ${routine.name} (${routine.id})`);
+    }
   }
 
   /**
@@ -28,26 +69,19 @@ export class SchedulerService {
   }
 
   /**
-   * Adds and schedules a single routine.
+   * Adds and schedules a single routine, persisting it to SQLite.
    * @param routine The routine to add.
    */
   public addRoutine(routine: RoutineConfig): void {
-    this.routines.set(routine.id, routine);
+    this.scheduleJob(routine);
 
-    if (routine.enabled) {
-      const job = cron.schedule(routine.cronExpression, async () => {
-        logger.info(`Running scheduled routine: ${routine.name} (${routine.id})`);
-        await this.executeRoutineActions(routine);
-      });
-      this.activeJobs.set(routine.id, job);
-      logger.info(`Scheduled routine: ${routine.name} with cron ${routine.cronExpression}`);
-    } else {
-      logger.info(`Routine added but disabled: ${routine.name} (${routine.id})`);
+    if (this.dbService) {
+      this.dbService.saveRoutine(routine);
     }
   }
 
   /**
-   * Removes and unschedules a routine.
+   * Removes and unschedules a routine, deleting it from SQLite.
    * @param id The routine ID.
    */
   public removeRoutine(id: string): void {
@@ -57,6 +91,11 @@ export class SchedulerService {
       this.activeJobs.delete(id);
     }
     this.routines.delete(id);
+
+    if (this.dbService) {
+      this.dbService.deleteRoutine(id);
+    }
+
     logger.info(`Removed routine: ${id}`);
   }
 

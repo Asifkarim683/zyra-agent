@@ -8,29 +8,36 @@ import { LLMService } from './services/llm/llm-service.js';
 import { Orchestrator } from './core/orchestrator.js';
 import { SchedulerService } from './services/scheduler.js';
 import { WebService } from './services/web-service.js';
+import { DatabaseService } from './services/database.js';
 
-// 1. Initialize skill registry and register built-in skills
+// 1. Initialize SQLite Database Service for persistent storage
+export const databaseService = new DatabaseService();
+
+// 2. Initialize skill registry and register built-in skills with DB memory
 export const skillRegistry = new SkillRegistry();
-registerAllSkills(skillRegistry);
+registerAllSkills(skillRegistry, databaseService);
 
-// 2. Initialize intent router
+// 3. Initialize intent router
 export const intentRouter = new IntentRouter(skillRegistry);
 
-// 3. Initialize conversation manager for short-term memory
-export const conversationManager = new ConversationManager();
+// 4. Initialize conversation manager backed by SQLite
+export const conversationManager = new ConversationManager(10, databaseService);
 
-// 4. Initialize web service for internet search and data extraction
+// 5. Initialize web service for internet search and data extraction
 export const webService = new WebService();
 
-// 5. Initialize LLM providers and service
+// 6. Initialize LLM providers and service grounded with SQLite memories
 export const claudeProvider = new ClaudeProvider();
 export const ollamaProvider = new OllamaProvider();
-export const llmService = new LLMService({
-  claude: claudeProvider,
-  ollama: ollamaProvider,
-});
+export const llmService = new LLMService(
+  {
+    claude: claudeProvider,
+    ollama: ollamaProvider,
+  },
+  databaseService
+);
 
-// 6. Initialize orchestrator (central brain connecting router, skills, LLM, memory, and web grounding)
+// 7. Initialize orchestrator (central brain connecting router, skills, LLM, memory, and web grounding)
 export const orchestrator = new Orchestrator(
   intentRouter,
   skillRegistry,
@@ -39,5 +46,5 @@ export const orchestrator = new Orchestrator(
   webService
 );
 
-// 7. Initialize scheduler service for automated routines
-export const schedulerService = new SchedulerService(skillRegistry);
+// 8. Initialize scheduler service for automated routines backed by SQLite
+export const schedulerService = new SchedulerService(skillRegistry, databaseService);

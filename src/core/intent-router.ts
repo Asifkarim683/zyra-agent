@@ -106,6 +106,25 @@ export class IntentRouter {
             intent: 'greet',
             skill: 'greeting',
             extractParams: () => ({})
+        },
+        // Memory patterns
+        {
+            pattern: /^(?:remember that|remember|don't forget that|keep in mind that) (.*)$/i,
+            intent: 'remember_fact',
+            skill: 'memory',
+            extractParams: (match) => ({ fact: match[1].trim() })
+        },
+        {
+            pattern: /^(?:what do you remember about me|what do you know about me|what are my preferences|list my memories)$/i,
+            intent: 'recall_all',
+            skill: 'memory',
+            extractParams: () => ({})
+        },
+        {
+            pattern: /^(?:forget that|forget my|forget) (.*)$/i,
+            intent: 'forget_fact',
+            skill: 'memory',
+            extractParams: (match) => ({ key: match[1].trim() })
         }
     ];
 

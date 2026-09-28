@@ -4,6 +4,7 @@ import { healthRouter } from './health.js';
 import { skillsRouter } from './skills.js';
 import { routinesRouter } from './routines.js';
 import { voiceRouter } from './voice.js';
+import { memoryRouter } from './memory.js';
 
 export const routes = Router();
 
@@ -12,3 +13,4 @@ routes.use('/health', healthRouter);
 routes.use('/skills', skillsRouter);
 routes.use('/routines', routinesRouter);
 routes.use('/voice', voiceRouter);
+routes.use('/memory', memoryRouter);

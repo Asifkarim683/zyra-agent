@@ -15,6 +15,7 @@
   "dependencies": {
     "@andresaya/edge-tts": "^1.8.1",
     "@anthropic-ai/sdk": "^0.32.1",
+    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
@@ -26,6 +27,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.7.5",

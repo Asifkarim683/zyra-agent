@@ -17,7 +17,8 @@ const envSchema = z.object({
     LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly']).default('info'),
     JWT_SECRET: z.string().default('default_jwt_secret_change_me_in_prod'),
     ASSISTANT_NAME: z.string().default('Zyra'),
-    OWNER_NAME: z.string().default('User')
+    OWNER_NAME: z.string().default('User'),
+    DB_PATH: z.string().default('./data/zyra.db'),
 });
 
 const _env = envSchema.safeParse(process.env);
@@ -40,7 +41,8 @@ export const config = {
     logLevel: _env.data.LOG_LEVEL,
     jwtSecret: _env.data.JWT_SECRET,
     assistantName: _env.data.ASSISTANT_NAME,
-    ownerName: _env.data.OWNER_NAME
+    ownerName: _env.data.OWNER_NAME,
+    dbPath: _env.data.DB_PATH,
 } as const;
 
 /**

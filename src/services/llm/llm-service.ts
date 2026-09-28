@@ -4,6 +4,8 @@ import { logger } from '../../config/logger.js';
 import { ClaudeProvider } from './claude-provider.js';
 import { OllamaProvider } from './ollama-provider.js';
 
+import type { DatabaseService } from '../database.js';
+
 export interface LLMProviders {
   claude: ClaudeProvider;
   ollama: OllamaProvider;
@@ -12,16 +14,19 @@ export interface LLMProviders {
 /**
  * Abstract LLM Service that handles routing requests to the appropriate provider.
  * Supports cloud (Claude), local (Ollama), and auto (Claude with Ollama fallback) modes.
+ * Grounded with persistent SQLite memory facts about the owner.
  */
 export class LLMService {
   private providers: LLMProviders;
+  private dbService?: DatabaseService;
 
-  constructor(providers: LLMProviders) {
+  constructor(providers: LLMProviders, dbService?: DatabaseService) {
     this.providers = providers;
+    this.dbService = dbService;
   }
 
   /**
-   * Gets the base system prompt for Zyra.
+   * Gets the base system prompt for Zyra, grounded with current temporal data and stored memories.
    * @returns The formatted system prompt.
    */
   private getSystemPrompt(): string {
@@ -38,6 +43,20 @@ export class LLMService {
       timeZoneName: 'short',
     });
 
+    let memoriesBlock = '';
+    if (this.dbService) {
+      try {
+        const memories = this.dbService.getAllMemories();
+        const keys = Object.keys(memories);
+        if (keys.length > 0) {
+          memoriesBlock = `\nFACTS & PREFERENCES YOU REMEMBER ABOUT ${config.ownerName.toUpperCase()}:\n` +
+            keys.map((k) => `- ${k.replace(/_/g, ' ')}: ${memories[k]}`).join('\n');
+        }
+      } catch (err: unknown) {
+        logger.warn(`Could not read memories for prompt: ${err}`);
+      }
+    }
+
     return `You are ${config.assistantName}, ${config.ownerName}'s personal AI companion. You have a distinct, charismatic, and warmly witty British personality.
 
 CRITICAL CONVERSATIONAL RULES (SOUND 100% HUMAN):
@@ -47,7 +66,7 @@ CRITICAL CONVERSATIONAL RULES (SOUND 100% HUMAN):
 4. Use everyday human speech contractions ("I'm", "it's", "you'd", "we've", "don't", "can't", "that's").
 5. Keep spoken responses concise, lively, and engaging (usually 1 to 3 natural sentences). Avoid rambling monologues.
 6. When answering real-time questions (stocks, news, weather, facts), explain the takeaway casually and conversationally like you're telling a colleague, rounding numbers naturally (e.g. "around $227" instead of robotic strings like "$227.52001 USD").
-7. Current local time is ${timeStr} on ${dateStr}.
+7. Current local time is ${timeStr} on ${dateStr}.${memoriesBlock}
 8. Be genuine, observant, subtly playful, and warm. ${config.ownerName} is your friend.`;
   }
 
