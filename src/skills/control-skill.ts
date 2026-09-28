@@ -8,7 +8,7 @@ export class ControlSkill extends BaseSkill {
   name = 'control';
   description = 'Control commands';
   patterns: IntentPattern[] = [
-    { pattern: /^(stop|pause|cancel|quit|shut up|be quiet|nevermind)/i, intent: 'stop' },
+    { pattern: /^(?:stop|pause|cancel|quit|shut up|be quiet|nevermind)$/i, intent: 'stop' },
   ];
 
   /**

@@ -7,6 +7,8 @@ import { ControlSkill } from './control-skill.js';
 import { SystemInfoSkill } from './system-info-skill.js';
 import { WeatherSkill } from './weather-skill.js';
 import { MemorySkill } from './memory-skill.js';
+import { TimerSkill } from './timer-skill.js';
+import { TodoSkill } from './todo-skill.js';
 import type { DatabaseService } from '../services/database.js';
 
 export * from './base-skill.js';
@@ -18,6 +20,8 @@ export * from './control-skill.js';
 export * from './system-info-skill.js';
 export * from './weather-skill.js';
 export * from './memory-skill.js';
+export * from './timer-skill.js';
+export * from './todo-skill.js';
 
 /**
  * Registers all built-in skills with the provided registry.
@@ -34,6 +38,8 @@ export function registerAllSkills(registry: SkillRegistry, dbService?: DatabaseS
     new SystemInfoSkill(),
     new WeatherSkill(),
     new MemorySkill(dbService),
+    new TimerSkill(),
+    new TodoSkill(dbService),
   ];
 
   for (const skill of skills) {

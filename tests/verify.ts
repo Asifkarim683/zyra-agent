@@ -27,7 +27,7 @@ async function runTests() {
   // 1. Test Skill Registry
   console.log('[1] Testing Skill Registry...');
   const skills = skillRegistry.list();
-  assert(skills.length >= 7, 'Skills registered', `Found ${skills.length} skills`);
+  assert(skills.length >= 9, 'Skills registered', `Found ${skills.length} skills`);
   assert(skillRegistry.has('greeting'), 'Greeting skill exists');
   assert(skillRegistry.has('time'), 'Time skill exists');
   assert(skillRegistry.has('alarm'), 'Alarm skill exists');
@@ -36,6 +36,8 @@ async function runTests() {
   assert(skillRegistry.has('system-info'), 'System info skill exists');
   assert(skillRegistry.has('weather'), 'Weather skill exists');
   assert(skillRegistry.has('memory'), 'Memory skill exists');
+  assert(skillRegistry.has('timer'), 'Timer skill exists');
+  assert(skillRegistry.has('todo'), 'Todo skill exists');
 
   // 2. Test Intent Router
   console.log('\n[2] Testing Intent Router...');
@@ -97,6 +99,28 @@ async function runTests() {
   const memoryResult = await orchestrator.process('remember that my favorite color is emerald green', convId);
   assert(memoryResult.provider === 'skill', 'Memory routed to skill');
   assert(memoryResult.response.includes('emerald green') || memoryResult.response.includes('memory') || memoryResult.response.includes('Eren'), 'Memory confirmed saving fact', memoryResult.response);
+
+  // Test Timer Skill Execution
+  const timerResult = await orchestrator.process('set a timer for 10 minutes', convId);
+  assert(timerResult.provider === 'skill', 'Timer routed to skill');
+  assert(timerResult.response.includes('10 minutes'), 'Timer confirmed setting 10 minutes', timerResult.response);
+
+  const checkTimerResult = await orchestrator.process('how much time is left on my timer', convId);
+  assert(checkTimerResult.provider === 'skill', 'Check timer routed to skill');
+  assert(checkTimerResult.response.includes('remaining'), 'Check timer reports remaining time', checkTimerResult.response);
+
+  const cancelTimerResult = await orchestrator.process('cancel my timer', convId);
+  assert(cancelTimerResult.provider === 'skill', 'Cancel timer routed to skill');
+  assert(cancelTimerResult.response.includes('cancelled'), 'Cancel timer confirmed cancellation', cancelTimerResult.response);
+
+  // Test Todo / Task Skill Execution
+  const addTaskResult = await orchestrator.process('add review pull request to my tasks', convId);
+  assert(addTaskResult.provider === 'skill', 'Add task routed to skill');
+  assert(addTaskResult.response.includes('review pull request'), 'Add task confirmed task addition', addTaskResult.response);
+
+  const listTasksResult = await orchestrator.process('what are my tasks', convId);
+  assert(listTasksResult.provider === 'skill', 'List tasks routed to skill');
+  assert(listTasksResult.response.includes('review pull request'), 'List tasks shows added task', listTasksResult.response);
 
   // 4. Test Conversation History & SQLite Persistence
   console.log('\n[4] Testing Conversation Manager & SQLite Persistence...');

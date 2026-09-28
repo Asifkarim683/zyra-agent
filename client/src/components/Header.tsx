@@ -1,12 +1,11 @@
 import React from 'react';
-import { Volume2, VolumeX, Sparkles, Cpu, Layers, PlayCircle, Database, Plus } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Database, Plus } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
   health: SystemHealth | null;
   ttsEnabled: boolean;
   onToggleTts: () => void;
-  onOpenSkills: () => void;
   onOpenRoutines: () => void;
   onOpenMemory?: () => void;
   onNewChat?: () => void;
@@ -16,7 +15,6 @@ export const Header: React.FC<HeaderProps> = ({
   health,
   ttsEnabled,
   onToggleTts,
-  onOpenSkills,
   onOpenRoutines,
   onOpenMemory,
   onNewChat,
@@ -219,35 +217,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <PlayCircle size={13} color="#f59e0b" />
           <span>ROUTINES</span>
-        </button>
-
-        {/* Skills Button */}
-        <button
-          onClick={onOpenSkills}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '6px 11px',
-            borderRadius: '8px',
-            background: 'rgba(10, 18, 36, 0.6)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: '11px',
-            fontWeight: 500,
-            fontFamily: 'var(--font-mono)',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-cyan)';
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border-subtle)';
-            e.currentTarget.style.color = 'inherit';
-          }}
-        >
-          <Layers size={13} color="var(--accent-cyan)" />
-          <span>SKILLS ({health?.activeSkills ?? 8})</span>
         </button>
 
         {/* Voice Audio Mute / Unmute Toggle */}

@@ -2,18 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ChatArea } from './components/ChatArea';
 import { QuickRoutines } from './components/QuickRoutines';
-import { SkillsDrawer } from './components/SkillsDrawer';
 import { MemoryModal } from './components/MemoryModal';
 import { useVoice } from './hooks/useVoice';
-import type { ChatMessage, SystemHealth, SkillItem, RoutineItem } from './types';
+import type { ChatMessage, SystemHealth, RoutineItem } from './types';
 
 export function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [health, setHealth] = useState<SystemHealth | null>(null);
-  const [skills, setSkills] = useState<SkillItem[]>([]);
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
-  const [isSkillsOpen, setIsSkillsOpen] = useState(false);
   const [isRoutinesOpen, setIsRoutinesOpen] = useState(false);
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
 
@@ -101,16 +98,14 @@ export function App() {
     [conversationId, voice]
   );
 
-  // Fetch telemetry, skills, and routines
+  // Fetch telemetry and routines
   const loadSystemInfo = async () => {
     try {
-      const [hRes, sRes, rRes] = await Promise.all([
+      const [hRes, rRes] = await Promise.all([
         fetch('/api/v1/health').then((r) => r.json()),
-        fetch('/api/v1/skills').then((r) => r.json()),
         fetch('/api/v1/routines').then((r) => r.json()),
       ]);
       setHealth(hRes);
-      setSkills(sRes);
       setRoutines(rRes);
     } catch (err) {
       console.warn('Failed to load system telemetry:', err);
@@ -156,7 +151,6 @@ export function App() {
         health={health}
         ttsEnabled={voice.ttsEnabled}
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
-        onOpenSkills={() => setIsSkillsOpen(true)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
         onOpenMemory={() => setIsMemoryOpen(true)}
         onNewChat={handleNewChat}
@@ -175,13 +169,6 @@ export function App() {
           onNewChat={handleNewChat}
         />
       </main>
-
-      <SkillsDrawer
-        isOpen={isSkillsOpen}
-        onClose={() => setIsSkillsOpen(false)}
-        skills={skills}
-        onSelectCommand={handleSendMessage}
-      />
 
       <QuickRoutines
         isOpen={isRoutinesOpen}

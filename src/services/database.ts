@@ -87,6 +87,13 @@ export class DatabaseService {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        completed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
   }
 
@@ -285,6 +292,69 @@ export class DatabaseService {
   public deleteMemory(key: string): void {
     const stmt = this.db.prepare(`DELETE FROM memories WHERE key = ?`);
     stmt.run(key.toLowerCase().trim());
+  }
+
+  // ==========================================
+  // TASKS & TODOS
+  // ==========================================
+
+  /**
+   * Adds a new task to SQLite.
+   */
+  public addTask(title: string): { id: number; title: string; completed: boolean } {
+    const stmt = this.db.prepare(`INSERT INTO tasks (title) VALUES (?)`);
+    const info = stmt.run(title.trim());
+    return {
+      id: Number(info.lastInsertRowid),
+      title: title.trim(),
+      completed: false,
+    };
+  }
+
+  /**
+   * Retrieves tasks from SQLite.
+   */
+  public getTasks(limit = 50): Array<{ id: number; title: string; completed: boolean; createdAt: string }> {
+    const stmt = this.db.prepare(`
+      SELECT id, title, completed, created_at as createdAt 
+      FROM tasks 
+      ORDER BY completed ASC, id DESC 
+      LIMIT ?
+    `);
+    const rows = stmt.all(limit) as Array<{ id: number; title: string; completed: number; createdAt: string }>;
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      completed: r.completed === 1,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  /**
+   * Marks a task as completed.
+   */
+  public completeTask(id: number): boolean {
+    const stmt = this.db.prepare(`UPDATE tasks SET completed = 1 WHERE id = ?`);
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Deletes a task by ID.
+   */
+  public deleteTask(id: number): boolean {
+    const stmt = this.db.prepare(`DELETE FROM tasks WHERE id = ?`);
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Clears all completed tasks.
+   */
+  public clearCompletedTasks(): number {
+    const stmt = this.db.prepare(`DELETE FROM tasks WHERE completed = 1`);
+    const result = stmt.run();
+    return result.changes;
   }
 
   /**
