@@ -109,19 +109,43 @@ export class IntentRouter {
         },
         // Memory patterns
         {
-            pattern: /^(?:remember that|remember|don't forget that|keep in mind that) (.*)$/i,
+            pattern: /^(?:remember that|remember|don't forget that|keep in mind that|save that|note that) (.*)$/i,
             intent: 'remember_fact',
             skill: 'memory',
             extractParams: (match) => ({ fact: match[1].trim() })
         },
         {
-            pattern: /^(?:what do you remember about me|what do you know about me|what are my preferences|list my memories)$/i,
+            pattern: /^(?:change|update|set) my ([a-zA-Z\s]+?) to (.*)$/i,
+            intent: 'update_fact',
+            skill: 'memory',
+            extractParams: (match) => ({ property: match[1].trim(), value: match[2].trim() })
+        },
+        {
+            pattern: /^my ([a-zA-Z\s]+?) is (.*)$/i,
+            intent: 'remember_fact',
+            skill: 'memory',
+            extractParams: (match) => ({ fact: match[0].trim(), property: match[1].trim(), value: match[2].trim() })
+        },
+        {
+            pattern: /^(?:do you remember my|what is my|what's my) ([a-zA-Z\s]+)$/i,
+            intent: 'recall_specific',
+            skill: 'memory',
+            extractParams: (match) => ({ property: match[1].trim() })
+        },
+        {
+            pattern: /^(?:clear all memories|forget everything(?: about me)?|wipe (?:all )?memories|clear (?:my )?memory)$/i,
+            intent: 'clear_all',
+            skill: 'memory',
+            extractParams: () => ({})
+        },
+        {
+            pattern: /^(?:what do you remember about me|what do you remember|what do you know about me|what are my preferences|list my memories|show my memories|what's in my memory)$/i,
             intent: 'recall_all',
             skill: 'memory',
             extractParams: () => ({})
         },
         {
-            pattern: /^(?:forget that|forget my|forget) (.*)$/i,
+            pattern: /^(?:forget that|forget my|forget|delete my|delete|remove my|remove) (.*)$/i,
             intent: 'forget_fact',
             skill: 'memory',
             extractParams: (match) => ({ key: match[1].trim() })

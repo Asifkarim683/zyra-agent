@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Database, Trash2, Plus, Check, RefreshCw } from 'lucide-react';
+import { X, Database, Trash2, RefreshCw, MessageSquare } from 'lucide-react';
 
 interface MemoryModalProps {
   isOpen: boolean;
@@ -9,9 +9,6 @@ interface MemoryModalProps {
 export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose }) => {
   const [memories, setMemories] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [newKey, setNewKey] = useState('');
-  const [newValue, setNewValue] = useState('');
-  const [savedStatus, setSavedStatus] = useState<string | null>(null);
 
   const loadMemories = async () => {
     setLoading(true);
@@ -31,33 +28,6 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose }) => 
       loadMemories();
     }
   }, [isOpen]);
-
-  const handleSaveMemory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKey.trim() || !newValue.trim()) return;
-
-    const formattedKey = newKey.trim().toLowerCase().replace(/\s+/g, '_');
-    try {
-      const res = await fetch('/api/v1/memory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key: formattedKey,
-          value: newValue.trim(),
-        }),
-      });
-
-      if (res.ok) {
-        setSavedStatus(`Saved "${formattedKey}"`);
-        setNewKey('');
-        setNewValue('');
-        setTimeout(() => setSavedStatus(null), 2500);
-        await loadMemories();
-      }
-    } catch (err) {
-      console.error('Failed to save memory:', err);
-    }
-  };
 
   const handleDeleteMemory = async (key: string) => {
     try {
@@ -95,7 +65,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose }) => 
         className="hud-panel animate-message"
         style={{
           width: '100%',
-          maxWidth: '580px',
+          maxWidth: '560px',
           background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(9, 14, 26, 0.98) 100%)',
           borderRadius: '20px',
           border: '1px solid rgba(16, 185, 129, 0.35)',
@@ -124,13 +94,13 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose }) => 
             </div>
             <div>
               <div style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em', color: '#10b981', textTransform: 'uppercase' }}>
-                // PERSISTENT SQLITE DATABASE
+                // LONG-TERM MEMORY CORE
               </div>
               <h2 style={{ fontSize: '19px', fontWeight: 700, color: '#f8fafc', marginTop: '1px' }}>
-                Long-Term Memory Core
+                Saved Facts & Preferences
               </h2>
               <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Facts & preferences stored persistently across all conversations in <code style={{ color: '#38bdf8' }}>data/zyra.db</code>.
+                Persisted in <code style={{ color: '#38bdf8' }}>data/zyra.db</code> and injected into Zyra's context.
               </p>
             </div>
           </div>
@@ -149,90 +119,52 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose }) => 
           </button>
         </div>
 
-        {/* Add / Update Fact Form */}
-        <form
-          onSubmit={handleSaveMemory}
+        {/* Natural Chat Instructions Callout */}
+        <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-            padding: '14px',
+            padding: '14px 16px',
             borderRadius: '12px',
-            background: 'rgba(10, 18, 36, 0.7)',
-            border: '1px solid var(--border-subtle)',
+            background: 'rgba(56, 189, 248, 0.06)',
+            border: '1px solid rgba(56, 189, 248, 0.2)',
             marginBottom: '18px',
           }}
         >
-          <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#38bdf8', fontWeight: 600 }}>
-            + ADD OR MODIFY FACT
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#38bdf8', fontWeight: 600, marginBottom: '6px' }}>
+            <MessageSquare size={13} />
+            <span>CONTROL MEMORY DIRECTLY IN CHAT</span>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="text"
-              placeholder="Key (e.g. favorite_food, job)"
-              value={newKey}
-              onChange={(e) => setNewKey(e.target.value)}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid var(--border-subtle)',
-                fontSize: '12.5px',
-                color: '#ffffff',
-                fontFamily: 'var(--font-mono)',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Value (e.g. Sushi, Engineer)"
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              style={{
-                flex: 1.5,
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid var(--border-subtle)',
-                fontSize: '12.5px',
-                color: '#ffffff',
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!newKey.trim() || !newValue.trim()}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                background: newKey.trim() && newValue.trim()
-                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                  : 'rgba(255, 255, 255, 0.05)',
-                color: newKey.trim() && newValue.trim() ? '#ffffff' : '#64748b',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: newKey.trim() && newValue.trim() ? 'pointer' : 'not-allowed',
-                boxShadow: newKey.trim() && newValue.trim() ? '0 0 12px rgba(16, 185, 129, 0.3)' : 'none',
-              }}
-            >
-              <Plus size={14} />
-              <span>Save</span>
-            </button>
-          </div>
-          {savedStatus && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#10b981' }}>
-              <Check size={12} />
-              <span>{savedStatus}</span>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.5 }}>
+            You don't need manual forms — simply speak or type to Zyra naturally:
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '6px',
+              fontSize: '11px',
+              fontFamily: 'var(--font-mono)',
+              color: '#f1f5f9',
+            }}
+          >
+            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '5px 8px', borderRadius: '6px' }}>
+              • "My favorite food is sushi"
             </div>
-          )}
-        </form>
+            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '5px 8px', borderRadius: '6px' }}>
+              • "Change my city to Tokyo"
+            </div>
+            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '5px 8px', borderRadius: '6px' }}>
+              • "What is my favorite food?"
+            </div>
+            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '5px 8px', borderRadius: '6px' }}>
+              • "Forget my favorite color"
+            </div>
+          </div>
+        </div>
 
-        {/* Stored Facts List */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        {/* Stored Facts Header & Refresh */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-            STORED FACTS ({memoryKeys.length})
+            ACTIVE MEMORIES ({memoryKeys.length})
           </span>
           <button
             onClick={loadMemories}
@@ -251,10 +183,11 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose }) => 
           </button>
         </div>
 
+        {/* Stored Facts List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
           {memoryKeys.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
-              No facts stored yet. Tell Zyra <em>"Remember that..."</em> in chat or add one above!
+              No facts stored yet. Just tell Zyra in chat, like <em>"My favorite food is sushi"</em>!
             </div>
           ) : (
             memoryKeys.map((key) => (
@@ -266,7 +199,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose }) => 
                   justifyContent: 'space-between',
                   padding: '10px 14px',
                   borderRadius: '10px',
-                  background: 'rgba(10, 18, 36, 0.5)',
+                  background: 'rgba(10, 18, 36, 0.55)',
                   border: '1px solid var(--border-subtle)',
                 }}
               >
