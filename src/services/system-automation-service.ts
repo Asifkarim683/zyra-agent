@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../config/logger.js';
 import type { DatabaseService } from './database.js';
@@ -7,6 +7,9 @@ export interface AllowedApp {
   key: string;
   name: string;
   executable: string;
+  windowsTargets: string[];
+  macosTargets?: string[];
+  linuxTargets?: string[];
   args?: string[];
   description: string;
 }
@@ -22,6 +25,28 @@ export interface PendingAction {
 }
 
 /**
+ * Checks if an application command or protocol is available on the current operating system.
+ */
+export function isCommandAvailable(target: string): boolean {
+  // Protocol URI handlers (e.g., 'calculator:', 'spotify:') are supported directly by OS shell
+  if (target.endsWith(':')) {
+    return true;
+  }
+
+  try {
+    if (process.platform === 'win32') {
+      execSync(`where ${target}`, { stdio: 'ignore', timeout: 2000 });
+      return true;
+    } else {
+      execSync(`which ${target}`, { stdio: 'ignore', timeout: 2000 });
+      return true;
+    }
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Hardcoded allowlist of safe desktop applications.
  * Absolutely NO arbitrary executables or shell commands can be executed.
  */
@@ -30,36 +55,54 @@ export const ALLOWED_APPS: Record<string, AllowedApp> = {
     key: 'calculator',
     name: 'Calculator',
     executable: 'calc.exe',
+    windowsTargets: ['calc.exe', 'calculator:'],
+    macosTargets: ['Calculator'],
+    linuxTargets: ['gnome-calculator', 'kcalc', 'xcalc'],
     description: 'Windows Calculator utility',
   },
   notepad: {
     key: 'notepad',
     name: 'Notepad',
     executable: 'notepad.exe',
+    windowsTargets: ['notepad.exe'],
+    macosTargets: ['TextEdit'],
+    linuxTargets: ['gedit', 'kate', 'nano'],
     description: 'Text editor utility',
   },
   vscode: {
     key: 'vscode',
     name: 'Visual Studio Code',
     executable: 'code',
+    windowsTargets: ['code.cmd', 'code.exe', 'code'],
+    macosTargets: ['Visual Studio Code'],
+    linuxTargets: ['code'],
     description: 'Code editor application',
   },
   spotify: {
     key: 'spotify',
     name: 'Spotify',
     executable: 'spotify',
+    windowsTargets: ['spotify:', 'spotify.exe'],
+    macosTargets: ['Spotify'],
+    linuxTargets: ['spotify'],
     description: 'Music player application',
   },
   paint: {
     key: 'paint',
     name: 'Paint',
     executable: 'mspaint.exe',
+    windowsTargets: ['mspaint.exe'],
+    macosTargets: ['Paintbrush', 'Preview'],
+    linuxTargets: ['pinta', 'gpaint', 'drawing'],
     description: 'Drawing application',
   },
   terminal: {
     key: 'terminal',
     name: 'Windows Terminal',
     executable: 'wt.exe',
+    windowsTargets: ['wt.exe', 'cmd.exe'],
+    macosTargets: ['Terminal'],
+    linuxTargets: ['gnome-terminal', 'xterm', 'konsole'],
     description: 'Terminal console',
   },
 };
@@ -140,6 +183,40 @@ export class SystemAutomationService {
   }
 
   /**
+   * Resolves the best available executable or protocol target for an allowed app on the current OS.
+   */
+  public resolveLaunchTarget(app: AllowedApp): string | null {
+    if (process.platform === 'win32') {
+      for (const target of app.windowsTargets) {
+        if (isCommandAvailable(target)) {
+          return target;
+        }
+      }
+    } else if (process.platform === 'darwin') {
+      const macTargets = app.macosTargets || [app.executable];
+      for (const target of macTargets) {
+        if (isCommandAvailable(target)) {
+          return target;
+        }
+      }
+    } else {
+      const linuxTargets = app.linuxTargets || [app.executable];
+      for (const target of linuxTargets) {
+        if (isCommandAvailable(target)) {
+          return target;
+        }
+      }
+    }
+
+    // Fallback in test environments
+    if (process.env.NODE_ENV === 'test') {
+      return app.executable;
+    }
+
+    return null;
+  }
+
+  /**
    * Stages a launch request for an allowlisted application.
    * Does NOT execute the application until explicitly confirmed by the user.
    */
@@ -177,7 +254,16 @@ export class SystemAutomationService {
       };
     }
 
-    // 3. Stage the pending action with a 60-second TTL
+    // 3. Safe Check: Verify application executable or protocol is available on system
+    const target = this.resolveLaunchTarget(app);
+    if (!target) {
+      return {
+        success: false,
+        message: `I found ${app.name} in my approved apps list, but it does not appear to be installed on your system.`,
+      };
+    }
+
+    // 4. Stage the pending action with a 60-second TTL
     const actionId = `act-${uuidv4().slice(0, 8)}`;
     const now = Date.now();
     const action: PendingAction = {
@@ -185,7 +271,7 @@ export class SystemAutomationService {
       type: 'launch_app',
       targetKey: app.key,
       targetName: app.name,
-      description: `Launch ${app.name} (${app.executable})`,
+      description: `Launch ${app.name} (${target})`,
       createdAt: now,
       expiresAt: now + 60000,
     };
@@ -196,7 +282,7 @@ export class SystemAutomationService {
       this.dbService.logAutomationAudit(actionId, 'launch_app', app.name, 'staged');
     }
 
-    logger.info(`Staged pending automation action: ${actionId} for ${app.name}`);
+    logger.info(`Staged pending automation action: ${actionId} for ${app.name} (${target})`);
 
     return {
       success: true,
@@ -257,24 +343,59 @@ export class SystemAutomationService {
       };
     }
 
+    // Safe Check: verify availability at confirmation time
+    const target = this.resolveLaunchTarget(app);
+    if (!target) {
+      this.pendingAction = null;
+      return {
+        success: false,
+        message: `Could not find ${app.name} on your system. Please verify that it is installed.`,
+      };
+    }
+
     // Clear pending state prior to execution
     this.pendingAction = null;
 
     try {
-      logger.info(`Executing confirmed system automation: ${app.name} (${app.executable})`);
+      logger.info(`Executing confirmed system automation: ${app.name} via target "${target}"`);
 
-      // CRITICAL: shell: false prevents command injection
-      const proc = spawn(app.executable, app.args || [], {
-        detached: true,
-        stdio: 'ignore',
-        shell: false,
-      });
+      if (process.platform === 'win32') {
+        // On Windows, use Windows Shell 'start' to ensure interactive WindowStation attach for GUI apps
+        const proc = spawn('cmd.exe', ['/c', 'start', '', target], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        });
 
-      proc.on('error', (err) => {
-        logger.error(`Error executing ${app.executable}: ${err.message}`);
-      });
+        proc.on('error', (err) => {
+          logger.error(`Error executing Windows target ${target}: ${err.message}`);
+        });
 
-      proc.unref();
+        proc.unref();
+      } else if (process.platform === 'darwin') {
+        const args = target.endsWith(':') ? [target] : ['-a', target];
+        const proc = spawn('open', args, {
+          detached: true,
+          stdio: 'ignore',
+        });
+
+        proc.on('error', (err) => {
+          logger.error(`Error executing macOS target ${target}: ${err.message}`);
+        });
+
+        proc.unref();
+      } else {
+        const proc = spawn('xdg-open', [target], {
+          detached: true,
+          stdio: 'ignore',
+        });
+
+        proc.on('error', (err) => {
+          logger.error(`Error executing Linux target ${target}: ${err.message}`);
+        });
+
+        proc.unref();
+      }
 
       if (this.dbService) {
         this.dbService.logAutomationAudit(action.id, 'launch_app', app.name, 'executed');

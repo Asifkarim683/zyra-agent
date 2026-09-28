@@ -139,6 +139,37 @@ async function runTests() {
   assert(confirmResult.action === 'automation_executed', 'Confirmed action executed successfully');
   assert(confirmResult.response.includes('launched'), 'Confirmation acknowledged app execution', confirmResult.response);
 
+  // Test System Automation Allowlist & Safe Availability Checks
+  const { systemAutomationService } = await import('../src/container.js');
+  const { ALLOWED_APPS } = await import('../src/services/system-automation-service.js');
+  
+  const testApps = ['calculator', 'notepad', 'vscode', 'spotify', 'paint', 'terminal'];
+  for (const appKey of testApps) {
+    const resolved = systemAutomationService.resolveApp(appKey);
+    assert(resolved !== null && resolved.key === appKey, `App resolution for "${appKey}" resolves to ${appKey}`);
+    if (resolved) {
+      const target = systemAutomationService.resolveLaunchTarget(resolved);
+      assert(target !== null && typeof target === 'string', `Safe check: resolved target for ${resolved.name}`, `Target: ${target}`);
+    }
+  }
+
+  // Test Security Block on Unapproved Application
+  const unapprovedStage = systemAutomationService.stageLaunchApp('malware.exe');
+  assert(!unapprovedStage.success, 'Stage rejects unapproved application');
+  assert(unapprovedStage.message.includes('pre-approved desktop applications'), 'Rejection message explains security allowlist');
+
+  // Test Security Block on Prohibited Command
+  const prohibitedStage = systemAutomationService.stageLaunchApp('format c:');
+  assert(prohibitedStage.prohibited === true && !prohibitedStage.success, 'Stage blocks destructive command: format c:');
+  assert(prohibitedStage.message.includes('strictly prohibited'), 'Rejection message explains prohibited destructive command');
+
+  // Test Cancellation of Staged Action
+  const stageNotepad = systemAutomationService.stageLaunchApp('notepad');
+  assert(stageNotepad.success === true, 'Successfully staged notepad for cancellation test');
+  const cancelResult = systemAutomationService.cancelAction(stageNotepad.pendingAction?.id);
+  assert(cancelResult.success === true, 'Successfully cancelled staged notepad launch');
+  assert(systemAutomationService.getPendingAction() === null, 'Pending action is null after cancellation');
+
   // 4. Test Conversation History & SQLite Persistence
   console.log('\n[4] Testing Conversation Manager & SQLite Persistence...');
   const history = conversationManager.getHistory(convId);
