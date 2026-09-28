@@ -121,10 +121,12 @@ export class WeatherSkill extends BaseSkill {
       } = weatherData.current;
 
       const condition = WMO_WEATHER_CODES[weather_code] || 'fair conditions';
+      const temp = Math.round(temperature_2m);
+      const feels = Math.round(apparent_temperature);
+      const wind = Math.round(wind_speed_10m);
+      const feelsPhrase = Math.abs(feels - temp) >= 2 ? `, feeling closer to ${feels}°C` : '';
 
-      const response = `In ${placeLabel}, it's currently ${Math.round(temperature_2m)}°C (feels like ${Math.round(
-        apparent_temperature
-      )}°C) with ${condition}, ${relative_humidity_2m}% humidity, and wind at ${Math.round(wind_speed_10m)} km/h.`;
+      const response = `It's about ${temp}°C and ${condition} in ${placeLabel} right now${feelsPhrase}, with ${relative_humidity_2m}% humidity and wind at ${wind} km/h.`;
 
       return this.success(response);
     } catch (err: unknown) {

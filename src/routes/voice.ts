@@ -40,7 +40,7 @@ voiceRouter.get('/tts', async (req, res, next) => {
       text,
       voice || voiceService.voiceId,
       pitch || '+0Hz',
-      rate || '+0%'
+      rate || voiceService.defaultRate
     );
 
     res.setHeader('Content-Type', 'audio/mpeg');

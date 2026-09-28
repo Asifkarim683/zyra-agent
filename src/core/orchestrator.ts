@@ -127,7 +127,7 @@ export class Orchestrator {
                             ...priorTurns,
                             {
                                 role: 'user',
-                                content: `${input}\n\n[REAL-TIME WEB SEARCH RESULTS]:\n${snippets}\n\nPlease use the real-time search results above to answer the user's question accurately and conversationally. Cite facts cleanly without sounding robotic.`,
+                                content: `${input}\n\n[REAL-TIME WEB DATA]:\n${snippets}\n\nInstructions: Answer Eren in your natural, friendly British voice using the live facts above. Do NOT say 'According to web results' or list URLs. Speak naturally like you already know the answer.`,
                                 timestamp: new Date()
                             }
                         ];

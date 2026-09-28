@@ -102,7 +102,7 @@ export function useVoice(onSpeechResult: (text: string) => void) {
       stopSpeaking();
       setIsSpeaking(true);
 
-      const audioUrl = `/api/v1/voice/tts?text=${encodeURIComponent(cleaned)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}`;
+      const audioUrl = `/api/v1/voice/tts?text=${encodeURIComponent(cleaned)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
 
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
@@ -116,7 +116,7 @@ export function useVoice(onSpeechResult: (text: string) => void) {
         console.warn('Neural TTS failed, falling back to browser synthesis.');
         if (window.speechSynthesis) {
           const utterance = new SpeechSynthesisUtterance(cleaned);
-          utterance.rate = 1.0;
+          utterance.rate = 1.08;
           utterance.onend = () => setIsSpeaking(false);
           utterance.onerror = () => setIsSpeaking(false);
 
