@@ -9,13 +9,17 @@ import { Orchestrator } from './core/orchestrator.js';
 import { SchedulerService } from './services/scheduler.js';
 import { WebService } from './services/web-service.js';
 import { DatabaseService } from './services/database.js';
+import { SystemAutomationService } from './services/system-automation-service.js';
 
 // 1. Initialize SQLite Database Service for persistent storage
 export const databaseService = new DatabaseService();
 
-// 2. Initialize skill registry and register built-in skills with DB memory
+// 1.1 Initialize System Automation Service with audit logging
+export const systemAutomationService = new SystemAutomationService(databaseService);
+
+// 2. Initialize skill registry and register built-in skills with DB memory and automation
 export const skillRegistry = new SkillRegistry();
-registerAllSkills(skillRegistry, databaseService);
+registerAllSkills(skillRegistry, databaseService, systemAutomationService);
 
 // 3. Initialize intent router
 export const intentRouter = new IntentRouter(skillRegistry);

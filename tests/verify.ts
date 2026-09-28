@@ -27,7 +27,7 @@ async function runTests() {
   // 1. Test Skill Registry
   console.log('[1] Testing Skill Registry...');
   const skills = skillRegistry.list();
-  assert(skills.length >= 9, 'Skills registered', `Found ${skills.length} skills`);
+  assert(skills.length >= 10, 'Skills registered', `Found ${skills.length} skills`);
   assert(skillRegistry.has('greeting'), 'Greeting skill exists');
   assert(skillRegistry.has('time'), 'Time skill exists');
   assert(skillRegistry.has('alarm'), 'Alarm skill exists');
@@ -38,6 +38,7 @@ async function runTests() {
   assert(skillRegistry.has('memory'), 'Memory skill exists');
   assert(skillRegistry.has('timer'), 'Timer skill exists');
   assert(skillRegistry.has('todo'), 'Todo skill exists');
+  assert(skillRegistry.has('system_automation'), 'System automation skill exists');
 
   // 2. Test Intent Router
   console.log('\n[2] Testing Intent Router...');
@@ -121,6 +122,22 @@ async function runTests() {
   const listTasksResult = await orchestrator.process('what are my tasks', convId);
   assert(listTasksResult.provider === 'skill', 'List tasks routed to skill');
   assert(listTasksResult.response.includes('review pull request'), 'List tasks shows added task', listTasksResult.response);
+
+  // Test System Automation Skill (Prohibited Command Defense)
+  const prohibitedResult = await orchestrator.process('shutdown computer', convId);
+  assert(prohibitedResult.provider === 'skill', 'Prohibited command routed to automation skill');
+  assert(prohibitedResult.response.includes('prohibited'), 'Prohibited command was blocked by security policy', prohibitedResult.response);
+
+  // Test System Automation Skill (Staging Allowlisted App)
+  const stageAppResult = await orchestrator.process('open calculator', convId);
+  assert(stageAppResult.provider === 'skill', 'Open app routed to automation skill');
+  assert(stageAppResult.action === 'pending_confirmation', 'Automation staged with pending_confirmation status');
+  assert(stageAppResult.response.includes('confirm to proceed'), 'Response requests user confirmation before executing', stageAppResult.response);
+
+  // Test System Automation Skill (Explicit User Confirmation)
+  const confirmResult = await orchestrator.process('confirm', convId);
+  assert(confirmResult.action === 'automation_executed', 'Confirmed action executed successfully');
+  assert(confirmResult.response.includes('launched'), 'Confirmation acknowledged app execution', confirmResult.response);
 
   // 4. Test Conversation History & SQLite Persistence
   console.log('\n[4] Testing Conversation Manager & SQLite Persistence...');
@@ -225,6 +242,12 @@ async function runTests() {
     const memoryJson = await memoryRes.json();
     assert(memoryRes.status === 200, 'GET /api/v1/memory returns 200');
     assert(typeof memoryJson.memories === 'object', 'Memory endpoint returns memories object');
+
+    // Test Automation Audit HTTP endpoint
+    const auditRes = await fetch(`http://localhost:${testPort}/api/v1/automation/audit`);
+    const auditJson = await auditRes.json();
+    assert(auditRes.status === 200, 'GET /api/v1/automation/audit returns 200');
+    assert(Array.isArray(auditJson.logs), 'Automation audit endpoint returns logs array');
 
     // 7. Test Security & Defensive Hardening
     console.log('\n[7] Testing Security & Defensive Hardening...');

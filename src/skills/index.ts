@@ -9,6 +9,8 @@ import { WeatherSkill } from './weather-skill.js';
 import { MemorySkill } from './memory-skill.js';
 import { TimerSkill } from './timer-skill.js';
 import { TodoSkill } from './todo-skill.js';
+import { SystemAutomationSkill } from './system-automation-skill.js';
+import { SystemAutomationService } from '../services/system-automation-service.js';
 import type { DatabaseService } from '../services/database.js';
 
 export * from './base-skill.js';
@@ -22,13 +24,20 @@ export * from './weather-skill.js';
 export * from './memory-skill.js';
 export * from './timer-skill.js';
 export * from './todo-skill.js';
+export * from './system-automation-skill.js';
 
 /**
  * Registers all built-in skills with the provided registry.
  * @param registry The skill registry instance to populate.
  * @param dbService Optional DatabaseService for memory and persistent skills.
+ * @param automationService Optional SystemAutomationService for desktop automation.
  */
-export function registerAllSkills(registry: SkillRegistry, dbService?: DatabaseService): void {
+export function registerAllSkills(
+  registry: SkillRegistry,
+  dbService?: DatabaseService,
+  automationService?: SystemAutomationService
+): void {
+  const autoSvc = automationService || new SystemAutomationService(dbService);
   const skills = [
     new GreetingSkill(),
     new TimeSkill(),
@@ -40,6 +49,7 @@ export function registerAllSkills(registry: SkillRegistry, dbService?: DatabaseS
     new MemorySkill(dbService),
     new TimerSkill(),
     new TodoSkill(dbService),
+    new SystemAutomationSkill(autoSvc),
   ];
 
   for (const skill of skills) {

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bot, User, Zap, Terminal } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play } from 'lucide-react';
 import type { ChatMessage } from '../types';
 
 interface MessageBubbleProps {
@@ -8,6 +8,45 @@ interface MessageBubbleProps {
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.role === 'user';
+  const [status, setStatus] = useState<'pending' | 'confirmed' | 'cancelled' | 'error'>('pending');
+  const [statusText, setStatusText] = useState<string>('');
+
+  const handleConfirm = async () => {
+    try {
+      const res = await fetch('/api/v1/automation/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionId: message.data?.actionId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus('confirmed');
+        setStatusText(data.message || 'Action executed successfully.');
+      } else {
+        setStatus('error');
+        setStatusText(data.error || 'Execution failed.');
+      }
+    } catch (err: any) {
+      setStatus('error');
+      setStatusText(err.message || 'Execution failed.');
+    }
+  };
+
+  const handleCancel = async () => {
+    try {
+      const res = await fetch('/api/v1/automation/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionId: message.data?.actionId }),
+      });
+      const data = await res.json();
+      setStatus('cancelled');
+      setStatusText(data.message || 'Action cancelled.');
+    } catch (err: any) {
+      setStatus('cancelled');
+      setStatusText('Action cancelled.');
+    }
+  };
 
   const timeString = new Intl.DateTimeFormat('en-US', {
     hour: '2-digit',
@@ -96,6 +135,100 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             }}
           />
           {message.content}
+
+          {/* System Automation Confirmation Card */}
+          {message.action === 'pending_confirmation' && (
+            <div
+              style={{
+                marginTop: '12px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                boxShadow: '0 0 15px rgba(245, 158, 11, 0.1)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '8px',
+                  color: '#fbbf24',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  fontFamily: 'monospace',
+                }}
+              >
+                <ShieldAlert size={14} color="#fbbf24" />
+                <span>CONFIRMATION REQUIRED</span>
+              </div>
+
+              <div style={{ fontSize: '13px', color: '#e2e8f0', marginBottom: '8px' }}>
+                Target: <strong style={{ color: '#38bdf8' }}>{message.data?.target || 'Desktop App'}</strong>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                  {message.data?.description || 'Automated OS execution'}
+                </div>
+              </div>
+
+              {status === 'pending' ? (
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                  <button
+                    onClick={handleConfirm}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    <Play size={12} />
+                    Confirm & Execute
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#f87171',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: status === 'confirmed' ? '#34d399' : status === 'cancelled' ? '#94a3b8' : '#f87171',
+                    padding: '4px 0',
+                  }}
+                >
+                  {status === 'confirmed' && <CheckCircle2 size={15} color="#34d399" />}
+                  {status === 'cancelled' && <XCircle size={15} color="#94a3b8" />}
+                  <span>{statusText}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Telemetry Metadata Footer */}

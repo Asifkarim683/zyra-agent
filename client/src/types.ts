@@ -11,6 +11,7 @@ export interface ChatMessage {
     parameters?: Record<string, string>;
   };
   action?: string;
+  data?: any;
 }
 
 export interface SystemHealth {

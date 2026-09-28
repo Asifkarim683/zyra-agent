@@ -73,6 +73,7 @@ export function App() {
           provider: data.provider,
           intent: data.intent,
           action: data.action,
+          data: data.data,
         };
 
         setMessages((prev) => [...prev, assistantMessage]);

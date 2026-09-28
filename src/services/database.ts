@@ -94,6 +94,15 @@ export class DatabaseService {
         completed INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS automation_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action_id TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        target TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
   }
 
@@ -355,6 +364,53 @@ export class DatabaseService {
     const stmt = this.db.prepare(`DELETE FROM tasks WHERE completed = 1`);
     const result = stmt.run();
     return result.changes;
+  }
+
+  // ==========================================
+  // SYSTEM AUTOMATION AUDIT LOG
+  // ==========================================
+
+  /**
+   * Records an automation attempt, confirmation, or execution in SQLite.
+   */
+  public logAutomationAudit(
+    actionId: string,
+    actionType: string,
+    target: string,
+    status: 'staged' | 'confirmed' | 'executed' | 'cancelled' | 'rejected'
+  ): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO automation_audit (action_id, action_type, target, status)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(actionId, actionType, target, status);
+  }
+
+  /**
+   * Retrieves recent automation audit records.
+   */
+  public getAutomationAuditLogs(limit = 20): Array<{
+    id: number;
+    actionId: string;
+    actionType: string;
+    target: string;
+    status: string;
+    createdAt: string;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT id, action_id as actionId, action_type as actionType, target, status, created_at as createdAt
+      FROM automation_audit
+      ORDER BY id DESC
+      LIMIT ?
+    `);
+    return stmt.all(limit) as Array<{
+      id: number;
+      actionId: string;
+      actionType: string;
+      target: string;
+      status: string;
+      createdAt: string;
+    }>;
   }
 
   /**
