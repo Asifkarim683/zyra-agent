@@ -1,22 +1,36 @@
 import React from 'react';
-import { Volume2, VolumeX, Sparkles, Cpu, Layers, PlayCircle } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, Layers, PlayCircle, Mic } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
   health: SystemHealth | null;
   ttsEnabled: boolean;
+  selectedVoice: string;
   onToggleTts: () => void;
   onOpenSkills: () => void;
   onOpenRoutines: () => void;
+  onOpenVoiceSettings: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   health,
   ttsEnabled,
+  selectedVoice,
   onToggleTts,
   onOpenSkills,
   onOpenRoutines,
+  onOpenVoiceSettings,
 }) => {
+  const voiceShortName = selectedVoice.includes('Aria')
+    ? 'Aria'
+    : selectedVoice.includes('Jenny')
+    ? 'Jenny'
+    : selectedVoice.includes('Sonia')
+    ? 'Sonia (UK)'
+    : selectedVoice.includes('Ana')
+    ? 'Ana'
+    : 'Neural';
+
   return (
     <header
       style={{
@@ -104,6 +118,27 @@ export const Header: React.FC<HeaderProps> = ({
           <Cpu size={14} color="#38bdf8" />
           <span>Mode: <strong style={{ color: 'var(--text-primary)' }}>{health?.llmMode || 'auto'}</strong></span>
         </div>
+
+        {/* Voice Persona Picker Button */}
+        <button
+          onClick={onOpenVoiceSettings}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 14px',
+            borderRadius: '8px',
+            background: 'rgba(236, 72, 153, 0.12)',
+            border: '1px solid rgba(236, 72, 153, 0.35)',
+            fontSize: '12px',
+            fontWeight: 600,
+            color: '#f472b6',
+          }}
+          title="Customize Zyra's Female Voice"
+        >
+          <Mic size={14} color="#f472b6" />
+          <span>Voice: {voiceShortName}</span>
+        </button>
 
         {/* Routines Button */}
         <button

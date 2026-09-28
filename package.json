@@ -13,6 +13,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
+    "@andresaya/edge-tts": "^1.8.1",
     "@anthropic-ai/sdk": "^0.32.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

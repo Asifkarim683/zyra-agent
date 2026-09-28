@@ -3,8 +3,9 @@ import { Header } from './components/Header';
 import { ChatArea } from './components/ChatArea';
 import { QuickRoutines } from './components/QuickRoutines';
 import { SkillsDrawer } from './components/SkillsDrawer';
+import { VoiceSettings } from './components/VoiceSettings';
 import { useVoice } from './hooks/useVoice';
-import type { ChatMessage, SystemHealth, SkillItem, RoutineItem } from './types';
+import type { ChatMessage, SystemHealth, SkillItem, RoutineItem, VoiceOption } from './types';
 
 export function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -12,8 +13,10 @@ export function App() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [skills, setSkills] = useState<SkillItem[]>([]);
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [isSkillsOpen, setIsSkillsOpen] = useState(false);
   const [isRoutinesOpen, setIsRoutinesOpen] = useState(false);
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
 
   // Generate or load persistent conversationId
   const [conversationId] = useState<string>(() => {
@@ -22,6 +25,13 @@ export function App() {
     const newId = crypto.randomUUID();
     localStorage.setItem('zyra_conv_id', newId);
     return newId;
+  });
+
+  // Initialize voice hook with neural streaming audio
+  const voice = useVoice((spokenText) => {
+    if (spokenText.trim()) {
+      handleSendMessage(spokenText.trim());
+    }
   });
 
   const handleSendMessage = useCallback(
@@ -64,7 +74,7 @@ export function App() {
 
         setMessages((prev) => [...prev, assistantMessage]);
 
-        // Speak response if voice TTS is active
+        // Speak response using Zyra's unique neural female voice
         if (data.response) {
           voice.speak(data.response);
         }
@@ -82,27 +92,22 @@ export function App() {
         setIsLoading(false);
       }
     },
-    [conversationId]
+    [conversationId, voice]
   );
 
-  // Initialize voice hook
-  const voice = useVoice((spokenText) => {
-    if (spokenText.trim()) {
-      handleSendMessage(spokenText.trim());
-    }
-  });
-
-  // Fetch telemetry and definitions on load
+  // Fetch telemetry, skills, routines, and neural voices
   const loadSystemInfo = async () => {
     try {
-      const [hRes, sRes, rRes] = await Promise.all([
+      const [hRes, sRes, rRes, vRes] = await Promise.all([
         fetch('/api/v1/health').then((r) => r.json()),
         fetch('/api/v1/skills').then((r) => r.json()),
         fetch('/api/v1/routines').then((r) => r.json()),
+        fetch('/api/v1/voice/voices').then((r) => r.json()).catch(() => ({ voices: [] })),
       ]);
       setHealth(hRes);
       setSkills(sRes);
       setRoutines(rRes);
+      if (vRes.voices) setVoices(vRes.voices);
     } catch (err) {
       console.warn('Failed to load system telemetry:', err);
     }
@@ -132,6 +137,11 @@ export function App() {
           provider: 'scheduler',
         },
       ]);
+      // Speak the routine greeting/music summary
+      const firstSpoken = data.results.find((r: any) => r.response)?.response;
+      if (firstSpoken) {
+        voice.speak(firstSpoken);
+      }
     }
     return data;
   };
@@ -141,9 +151,11 @@ export function App() {
       <Header
         health={health}
         ttsEnabled={voice.ttsEnabled}
+        selectedVoice={voice.selectedVoice}
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenSkills={() => setIsSkillsOpen(true)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
+        onOpenVoiceSettings={() => setIsVoiceSettingsOpen(true)}
       />
 
       <main style={{ flex: 1 }}>
@@ -170,6 +182,19 @@ export function App() {
         onClose={() => setIsRoutinesOpen(false)}
         routines={routines}
         onTriggerRoutine={handleTriggerRoutine}
+      />
+
+      <VoiceSettings
+        isOpen={isVoiceSettingsOpen}
+        onClose={() => setIsVoiceSettingsOpen(false)}
+        voices={voices}
+        selectedVoice={voice.selectedVoice}
+        onSelectVoice={(id) => {
+          voice.changeVoice(id);
+          setIsVoiceSettingsOpen(false);
+        }}
+        onPreviewVoice={voice.previewVoice}
+        isSpeaking={voice.isSpeaking}
       />
     </div>
   );
