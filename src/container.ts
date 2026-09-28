@@ -7,6 +7,7 @@ import { OllamaProvider } from './services/llm/ollama-provider.js';
 import { LLMService } from './services/llm/llm-service.js';
 import { Orchestrator } from './core/orchestrator.js';
 import { SchedulerService } from './services/scheduler.js';
+import { WebService } from './services/web-service.js';
 
 // 1. Initialize skill registry and register built-in skills
 export const skillRegistry = new SkillRegistry();
@@ -18,7 +19,10 @@ export const intentRouter = new IntentRouter(skillRegistry);
 // 3. Initialize conversation manager for short-term memory
 export const conversationManager = new ConversationManager();
 
-// 4. Initialize LLM providers and service
+// 4. Initialize web service for internet search and data extraction
+export const webService = new WebService();
+
+// 5. Initialize LLM providers and service
 export const claudeProvider = new ClaudeProvider();
 export const ollamaProvider = new OllamaProvider();
 export const llmService = new LLMService({
@@ -26,13 +30,14 @@ export const llmService = new LLMService({
   ollama: ollamaProvider,
 });
 
-// 5. Initialize orchestrator (central brain connecting router, skills, LLM, memory)
+// 6. Initialize orchestrator (central brain connecting router, skills, LLM, memory, and web grounding)
 export const orchestrator = new Orchestrator(
   intentRouter,
   skillRegistry,
   llmService,
-  conversationManager
+  conversationManager,
+  webService
 );
 
-// 6. Initialize scheduler service for automated routines
+// 7. Initialize scheduler service for automated routines
 export const schedulerService = new SchedulerService(skillRegistry);

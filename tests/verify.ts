@@ -26,18 +26,22 @@ async function runTests() {
   // 1. Test Skill Registry
   console.log('[1] Testing Skill Registry...');
   const skills = skillRegistry.list();
-  assert(skills.length >= 6, 'Skills registered', `Found ${skills.length} skills`);
+  assert(skills.length >= 7, 'Skills registered', `Found ${skills.length} skills`);
   assert(skillRegistry.has('greeting'), 'Greeting skill exists');
   assert(skillRegistry.has('time'), 'Time skill exists');
   assert(skillRegistry.has('alarm'), 'Alarm skill exists');
   assert(skillRegistry.has('music'), 'Music skill exists');
   assert(skillRegistry.has('control'), 'Control skill exists');
   assert(skillRegistry.has('system-info'), 'System info skill exists');
+  assert(skillRegistry.has('weather'), 'Weather skill exists');
 
   // 2. Test Intent Router
   console.log('\n[2] Testing Intent Router...');
   const testCases = [
     { input: 'what time is it', expectedSkill: 'time', expectedIntent: 'get_time' },
+    { input: 'what time is it in Tokyo', expectedSkill: 'time', expectedIntent: 'get_time' },
+    { input: 'time in Paris', expectedSkill: 'time', expectedIntent: 'get_time' },
+    { input: 'what is the weather in London', expectedSkill: 'weather', expectedIntent: 'check_weather' },
     { input: 'current time', expectedSkill: 'time', expectedIntent: 'get_time' },
     { input: 'what is today date', expectedSkill: 'time', expectedIntent: 'get_date' },
     { input: 'play Bohemian Rhapsody', expectedSkill: 'music', expectedIntent: 'play_music' },
@@ -75,10 +79,20 @@ async function runTests() {
   const musicResult = await orchestrator.process('play jazz', convId);
   assert(musicResult.response.includes('jazz'), 'Music skill extracted query parameter', musicResult.response);
 
+  // Test World Time Skill
+  const worldTimeResult = await orchestrator.process('what time is it in Tokyo', convId);
+  assert(worldTimeResult.provider === 'skill', 'World time routed to skill');
+  assert(worldTimeResult.response.includes('Tokyo'), 'World time resolved Tokyo correctly', worldTimeResult.response);
+
+  // Test Weather Skill
+  const weatherResult = await orchestrator.process('what is the weather in London', convId);
+  assert(weatherResult.provider === 'skill', 'Weather routed to skill');
+  assert(weatherResult.response.includes('London') && weatherResult.response.includes('°C'), 'Weather returned live temperature for London', weatherResult.response);
+
   // 4. Test Conversation History
   console.log('\n[4] Testing Conversation Manager...');
   const history = conversationManager.getHistory(convId);
-  assert(history.length === 6, 'History recorded 3 user and 3 assistant turns', `Length: ${history.length}`);
+  assert(history.length === 10, 'History recorded 5 user and 5 assistant turns', `Length: ${history.length}`);
   assert(history[0].role === 'user', 'First turn was user');
   assert(history[1].role === 'assistant', 'Second turn was assistant');
 

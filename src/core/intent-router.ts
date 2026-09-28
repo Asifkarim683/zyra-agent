@@ -49,24 +49,36 @@ export class IntentRouter {
         },
         // Time patterns
         {
-            pattern: /^(?:what(?:'?s| is) the time|what time is it|tell me the time|current time|the time)$/i,
+            pattern: /^(?:what(?:'?s| is) the time|what time is it|tell me the time|current time|the time)(?: in (.*))?$/i,
             intent: 'get_time',
             skill: 'time',
-            extractParams: () => ({})
+            extractParams: (match) => ({ location: match[1] ? match[1].trim() : '' })
+        },
+        {
+            pattern: /^(?:time in (.*))$/i,
+            intent: 'get_time',
+            skill: 'time',
+            extractParams: (match) => ({ location: match[1] ? match[1].trim() : '' })
         },
         // Date patterns
         {
-            pattern: /^(?:what(?:'?s| is) today(?:'?s)? date|what is the date|what day is it|today(?:'?s)? date)$/i,
+            pattern: /^(?:what(?:'?s| is) today(?:'?s)? date|what is the date|what day is it|today(?:'?s)? date)(?: in (.*))?$/i,
             intent: 'get_date',
             skill: 'time',
-            extractParams: () => ({})
+            extractParams: (match) => ({ location: match[1] ? match[1].trim() : '' })
         },
         // Weather patterns
         {
             pattern: /^(?:weather|what(?:'?s| is) the weather|how(?:'?s| is) the weather)(?: in (.*))?$/i,
             intent: 'check_weather',
             skill: 'weather',
-            extractParams: (match) => ({ location: match[1] || '' })
+            extractParams: (match) => ({ location: match[1] ? match[1].trim() : '' })
+        },
+        {
+            pattern: /^(?:weather forecast(?: for| in) (.*))$/i,
+            intent: 'check_weather',
+            skill: 'weather',
+            extractParams: (match) => ({ location: match[1] ? match[1].trim() : '' })
         },
         // Control patterns
         {

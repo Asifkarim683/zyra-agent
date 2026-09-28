@@ -25,7 +25,22 @@ export class LLMService {
    * @returns The formatted system prompt.
    */
   private getSystemPrompt(): string {
-    return `You are ${config.assistantName}, a personal AI assistant for ${config.ownerName}. You are helpful, concise, and slightly witty. You speak naturally and warmly. When you don't know something, say so honestly. You can help with general questions, conversations, and tasks.`;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const timeStr = now.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      timeZoneName: 'short',
+    });
+
+    return `You are ${config.assistantName}, a personal AI assistant for ${config.ownerName}. You are helpful, concise, and slightly witty. You speak naturally and warmly.
+Current Date: ${dateStr}. Current Time: ${timeStr}.
+When real-time information or web search results are provided in the context, use them directly to provide accurate, up-to-date answers. When you don't know something, say so honestly. You can help with general questions, conversations, and tasks.`;
   }
 
   /**
