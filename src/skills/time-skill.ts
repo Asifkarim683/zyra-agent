@@ -8,6 +8,7 @@ export class TimeSkill extends BaseSkill {
   name = 'time';
   description = 'Returns current time and/or date';
   patterns: IntentPattern[] = [
+    { pattern: /what time is it/i, intent: 'get_time' },
     { pattern: /what('?s| is) the time/i, intent: 'get_time' },
     { pattern: /current time/i, intent: 'get_time' },
     { pattern: /what('?s| is) today('?s)? date/i, intent: 'get_date' },

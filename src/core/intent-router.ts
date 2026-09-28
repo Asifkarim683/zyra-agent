@@ -9,12 +9,13 @@ export interface InternalIntentPattern {
 }
 
 /**
- * IntentRouter handles matching user inputs to specific skills.
+ * IntentRouter handles matching user inputs to specific skills before hitting the LLM.
  */
 export class IntentRouter {
     private registry: SkillRegistry;
     
     private builtInPatterns: InternalIntentPattern[] = [
+        // Music patterns
         {
             pattern: /^(?:play music|play song|play) (.*)$/i,
             intent: 'play_music',
@@ -22,49 +23,74 @@ export class IntentRouter {
             extractParams: (match) => ({ query: match[1] })
         },
         {
-            pattern: /^(?:play music|play song)$/i,
+            pattern: /^(?:play music|play a song|play some music|play song)$/i,
             intent: 'play_music',
             skill: 'music',
             extractParams: () => ({})
         },
+        // Alarm / reminder patterns
         {
-            pattern: /^(?:set alarm|wake me up at) (.*)$/i,
+            pattern: /^(?:set (?:an? )?alarm (?:for|at)|wake me up at) (.*)$/i,
             intent: 'set_alarm',
             skill: 'alarm',
             extractParams: (match) => ({ time: match[1] })
         },
         {
-            pattern: /^(?:what time is it|current time)$/i,
-            intent: 'get_time',
-            skill: 'time',
+            pattern: /^(?:set (?:an? )?alarm|wake me up)$/i,
+            intent: 'set_alarm',
+            skill: 'alarm',
             extractParams: () => ({})
         },
         {
-            pattern: /^(?:what(?:'?s| is) today(?:'?s)? date|what day is it)$/i,
-            intent: 'get_date',
-            skill: 'time',
-            extractParams: () => ({})
-        },
-        {
-            pattern: /^(?:weather|what's the weather)$/i,
-            intent: 'check_weather',
-            skill: 'weather',
-            extractParams: () => ({})
-        },
-        {
-            pattern: /^(?:remind me|reminder) (.*)$/i,
+            pattern: /^(?:remind me to|remind me|reminder) (.*)$/i,
             intent: 'set_reminder',
             skill: 'alarm',
             extractParams: (match) => ({ task: match[1] })
         },
+        // Time patterns
         {
-            pattern: /^(?:stop|pause|cancel)$/i,
+            pattern: /^(?:what(?:'?s| is) the time|what time is it|tell me the time|current time|the time)$/i,
+            intent: 'get_time',
+            skill: 'time',
+            extractParams: () => ({})
+        },
+        // Date patterns
+        {
+            pattern: /^(?:what(?:'?s| is) today(?:'?s)? date|what is the date|what day is it|today(?:'?s)? date)$/i,
+            intent: 'get_date',
+            skill: 'time',
+            extractParams: () => ({})
+        },
+        // Weather patterns
+        {
+            pattern: /^(?:weather|what(?:'?s| is) the weather|how(?:'?s| is) the weather)(?: in (.*))?$/i,
+            intent: 'check_weather',
+            skill: 'weather',
+            extractParams: (match) => ({ location: match[1] || '' })
+        },
+        // Control patterns
+        {
+            pattern: /^(?:stop|pause|cancel|quit|shut up|be quiet|nevermind)$/i,
             intent: 'stop',
             skill: 'control',
             extractParams: () => ({})
         },
+        // System status / How are you
         {
-            pattern: /^(?:good morning|good afternoon|good evening|hello|hey|hey zyra|hello zyra)$/i,
+            pattern: /^(?:how are you(?: doing)?|how(?:'?s| is) it going|how are you today)$/i,
+            intent: 'how_are_you',
+            skill: 'system-info',
+            extractParams: () => ({})
+        },
+        {
+            pattern: /^(?:system (?:status|info)|are you (?:there|awake|alive|online))$/i,
+            intent: 'system_status',
+            skill: 'system-info',
+            extractParams: () => ({})
+        },
+        // Greetings
+        {
+            pattern: /^(?:good morning|good afternoon|good evening|hello|hey|hi|hey zyra|hello zyra|hi zyra)$/i,
             intent: 'greet',
             skill: 'greeting',
             extractParams: () => ({})
@@ -79,6 +105,20 @@ export class IntentRouter {
     }
 
     /**
+     * Normalizes utterance for robust pattern matching:
+     * - Trims whitespace
+     * - Strips trailing punctuation (? ! . , ; :)
+     * - Collapses multiple whitespace
+     */
+    private cleanInput(text: string): string {
+        return text
+            .trim()
+            .replace(/[?!.,;:]+$/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /**
      * Routes the input to a matched intent or returns null.
      * Uses a two-phase matching strategy (exact command matching and pattern matching).
      * 
@@ -86,19 +126,19 @@ export class IntentRouter {
      * @returns An IntentMatch object or null if no match is found (triggering LLM fallback).
      */
     public route(input: string): IntentMatch | null {
-        const normalizedInput = input.trim();
+        const rawInput = input.trim();
+        const cleaned = this.cleanInput(input);
 
-        // 1. Check built-in patterns
+        // 1. Check built-in patterns against both cleaned and raw input
         for (const bp of this.builtInPatterns) {
-            const match = normalizedInput.match(bp.pattern);
+            const match = cleaned.match(bp.pattern) || rawInput.match(bp.pattern);
             if (match) {
-                const isExact = match[0].length === normalizedInput.length;
                 return {
                     intent: bp.intent,
                     skill: bp.skill,
-                    confidence: isExact ? 1.0 : 0.8,
+                    confidence: 1.0,
                     parameters: bp.extractParams(match),
-                    raw: normalizedInput
+                    raw: rawInput
                 };
             }
         }
@@ -108,15 +148,14 @@ export class IntentRouter {
             const skill = this.registry.get(skillName);
             if (skill && skill.patterns) {
                 for (const sp of skill.patterns) {
-                    const match = normalizedInput.match(sp.pattern);
+                    const match = cleaned.match(sp.pattern) || rawInput.match(sp.pattern);
                     if (match) {
-                        const isExact = match[0].length === normalizedInput.length;
                         return {
                             intent: sp.intent,
                             skill: skillName,
-                            confidence: isExact ? 1.0 : 0.8,
+                            confidence: 0.9,
                             parameters: sp.extractParams ? sp.extractParams(match) : {},
-                            raw: normalizedInput
+                            raw: rawInput
                         };
                     }
                 }
