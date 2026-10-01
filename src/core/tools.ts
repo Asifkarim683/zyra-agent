@@ -49,7 +49,7 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'search_web',
-      description: 'Search the live internet for recent news, facts, articles, or real-time data',
+      description: 'Search the live internet ONLY when specifically asked to search online or for breaking recent 2024-2026 news. Never use for general knowledge, science, history, facts, or definitions.',
       parameters: {
         type: 'object',
         properties: {
@@ -104,6 +104,62 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
     },
   },
 ];
+
+/**
+ * Selects only the strictly relevant tools for a given user prompt.
+ * Avoids injecting heavy tool schemas for standard conversational turns,
+ * eliminating 800ms+ prompt eval overhead and preventing false-positive tool calls.
+ */
+export function getToolsForPrompt(prompt: string): ToolDefinition[] {
+  const p = prompt.toLowerCase();
+
+  // Explicit internet / search requests
+  const isSearchRequested = /\b(search\s+(?:the\s+web|online|internet|google)|search\s+for|look\s*up\s+online|browse\s+the\s+web|latest\s+news|breaking\s+news|recent\s+headlines?|today's\s+news|current\s+events)\b/i.test(p);
+
+  // Real-time weather requests
+  const isWeatherRequested = /\b(weather|temperature|forecast|degrees|raining|snowing|humid|sunny|windy|rain|snow)\b/i.test(p);
+
+  // Real-time clock / time / date requests
+  const isTimeRequested = /\b(what\s+time|current\s+time|what's\s+the\s+time|what\s+date|what\s+day\s+is\s+it|time\s+in|timezone|clock)\b/i.test(p);
+
+  // Timer / countdown requests
+  const isTimerRequested = /\b(timer|countdown|stopwatch)\b/i.test(p);
+
+  // Task / todo requests
+  const isTaskRequested = /\b(task|todo|to-do|checklist)\b/i.test(p);
+
+  // Explicit memory requests
+  const isMemoryRequested = /\b(remember\s+that|don't\s+forget\s+that|keep\s+in\s+mind|store\s+this\s+fact|my\s+favorite)\b/i.test(p);
+
+  const matched: ToolDefinition[] = [];
+
+  if (isWeatherRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'get_weather');
+    if (t) matched.push(t);
+  }
+  if (isTimeRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'get_time_or_date');
+    if (t) matched.push(t);
+  }
+  if (isSearchRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'search_web');
+    if (t) matched.push(t);
+  }
+  if (isTimerRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'manage_timer');
+    if (t) matched.push(t);
+  }
+  if (isTaskRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'manage_tasks');
+    if (t) matched.push(t);
+  }
+  if (isMemoryRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'manage_memory');
+    if (t) matched.push(t);
+  }
+
+  return matched;
+}
 
 export interface ToolExecutionContext {
   registry: SkillRegistry;

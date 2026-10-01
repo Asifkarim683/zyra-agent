@@ -6,7 +6,7 @@ import { WebService } from '../services/web-service.js';
 import type { TelemetryService } from '../services/telemetry-service.js';
 import type { DatabaseService } from '../services/database.js';
 import { PipelineTracer, type PipelineTrace } from './pipeline-tracer.js';
-import { TOOL_SCHEMAS, executeTool } from './tools.js';
+import { TOOL_SCHEMAS, executeTool, getToolsForPrompt } from './tools.js';
 import type { SkillResult, SkillContext, IntentMatch, ConversationTurn } from '../types/index.js';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
@@ -151,114 +151,35 @@ export class Orchestrator {
     } else {
       tracer.endNode('node_router', { matched: false, reason: 'Delegating to Autonomous Tool Calling' });
 
+      // Keep active prompt context focused to the last 6 turns to keep prompt eval <100ms
+      const promptHistory = history.slice(-6);
+
+      // Intelligently gate tool schemas: only pass tools if the user prompt actually requires them
+      const candidateTools = getToolsForPrompt(sanitizedInput);
+      const hasTools = candidateTools.length > 0;
+
       // ── Node 4: LLM Reasoning & Tool Planner Node ─────────────────────────
-      tracer.startNode('node_reasoning', 'LLM Tool Planner & Reasoning', 'reasoning', {
-        model: config.ollamaModel,
-        provider: config.llmMode,
-        toolsAvailable: TOOL_SCHEMAS.map((t) => t.function.name),
-      });
+      tracer.startNode(
+        'node_reasoning',
+        hasTools ? 'LLM Tool Planner & Reasoning' : 'LLM Conversational Reasoning',
+        'reasoning',
+        {
+          model: config.ollamaModel,
+          provider: config.llmMode,
+          toolsAvailable: candidateTools.map((t) => t.function.name),
+        }
+      );
 
       try {
-        callbacks?.onStatus?.('Thinking & planning tools...');
-        const initialLLMRes = await this.llmService.chat(
-          {
-            messages: history,
-            tools: TOOL_SCHEMAS,
-          },
-          (token: string) => {
-            callbacks?.onToken?.(token);
-          }
-        );
-
-        // Check if LLM decided to invoke one or more tools
-        if (initialLLMRes.toolCalls && initialLLMRes.toolCalls.length > 0) {
-          tracer.endNode(
-            'node_reasoning',
+        if (!hasTools) {
+          // Direct conversational path: stream tokens immediately to user without tool evaluation latency
+          const initialLLMRes = await this.llmService.chat(
             {
-              decision: 'tool_call',
-              toolCalls: initialLLMRes.toolCalls,
-            },
-            {
-              metrics: initialLLMRes.metrics,
-            }
-          );
-
-          // ── Node 5: Tool Execution Node(s) ──────────────────────────────────
-          const toolResults: Array<{ name: string; args: any; output: string }> = [];
-
-          for (let i = 0; i < initialLLMRes.toolCalls.length; i++) {
-            const tc = initialLLMRes.toolCalls[i];
-            const toolNodeId = `node_tool_${tc.function.name}_${i}`;
-            tracer.startNode(toolNodeId, `Tool Execution: ${tc.function.name}`, 'tool', tc.function.arguments);
-            callbacks?.onStatus?.(`Executing live tool: ${tc.function.name}...`);
-
-            const toolRes = await executeTool(tc.function.name, tc.function.arguments, {
-              registry: this.registry,
-              dbService: this.databaseService,
-              webService: this.webService,
-              conversationId,
-            });
-
-            toolResults.push({
-              name: tc.function.name,
-              args: tc.function.arguments,
-              output: toolRes.result,
-            });
-
-            tracer.endNode(toolNodeId, { result: toolRes.result });
-          }
-
-          // ── Node 6: Response Synthesis Node ─────────────────────────────────
-          tracer.startNode('node_synthesis', 'Response Synthesis', 'synthesis', {
-            toolsApplied: toolResults.map((t) => t.name),
-          });
-          callbacks?.onStatus?.('Synthesizing verified response...');
-
-          // Build synthesis turn history with assistant's tool call and tool responses
-          const synthesisMessages: ConversationTurn[] = [
-            ...history,
-            {
-              role: 'assistant',
-              content: initialLLMRes.content || '',
-              tool_calls: initialLLMRes.toolCalls.map((tc) => ({
-                id: tc.id || `call_${tc.function.name}`,
-                type: 'function',
-                function: tc.function,
-              })),
-              timestamp: new Date(),
-            },
-            ...toolResults.map((tr) => ({
-              role: 'tool' as const,
-              content: tr.output,
-              tool_call_id: `call_${tr.name}`,
-              timestamp: new Date(),
-            })),
-          ];
-
-          const synthesisRes = await this.llmService.chat(
-            {
-              messages: synthesisMessages,
+              messages: promptHistory,
             },
             callbacks?.onToken
           );
 
-          tracer.endNode(
-            'node_synthesis',
-            {
-              content: synthesisRes.content,
-            },
-            {
-              metrics: synthesisRes.metrics,
-            }
-          );
-
-          result = {
-            response: synthesisRes.content,
-            provider: synthesisRes.provider,
-            speak: true,
-          };
-        } else {
-          // Direct LLM conversational answer (no tools required)
           tracer.endNode(
             'node_reasoning',
             {
@@ -275,6 +196,130 @@ export class Orchestrator {
             provider: initialLLMRes.provider,
             speak: true,
           };
+        } else {
+          // Tool path: evaluate with relevant tool subset
+          callbacks?.onStatus?.('Planning tools...');
+          let bufferedTokens = '';
+          const initialLLMRes = await this.llmService.chat(
+            {
+              messages: promptHistory,
+              tools: candidateTools,
+            },
+            (token: string) => {
+              bufferedTokens += token;
+            }
+          );
+
+          // Check if LLM decided to invoke one or more tools
+          if (initialLLMRes.toolCalls && initialLLMRes.toolCalls.length > 0) {
+            tracer.endNode(
+              'node_reasoning',
+              {
+                decision: 'tool_call',
+                toolCalls: initialLLMRes.toolCalls,
+              },
+              {
+                metrics: initialLLMRes.metrics,
+              }
+            );
+
+            // ── Node 5: Tool Execution Node(s) ──────────────────────────────────
+            const toolResults: Array<{ name: string; args: any; output: string }> = [];
+
+            for (let i = 0; i < initialLLMRes.toolCalls.length; i++) {
+              const tc = initialLLMRes.toolCalls[i];
+              const toolNodeId = `node_tool_${tc.function.name}_${i}`;
+              tracer.startNode(toolNodeId, `Tool Execution: ${tc.function.name}`, 'tool', tc.function.arguments);
+              callbacks?.onStatus?.(`Executing live tool: ${tc.function.name}...`);
+
+              const toolRes = await executeTool(tc.function.name, tc.function.arguments, {
+                registry: this.registry,
+                dbService: this.databaseService,
+                webService: this.webService,
+                conversationId,
+              });
+
+              toolResults.push({
+                name: tc.function.name,
+                args: tc.function.arguments,
+                output: toolRes.result,
+              });
+
+              tracer.endNode(toolNodeId, { result: toolRes.result });
+            }
+
+            // ── Node 6: Response Synthesis Node ─────────────────────────────────
+            tracer.startNode('node_synthesis', 'Response Synthesis', 'synthesis', {
+              toolsApplied: toolResults.map((t) => t.name),
+            });
+            callbacks?.onStatus?.('Synthesizing verified response...');
+
+            // Build synthesis turn history with assistant's tool call and tool responses
+            const synthesisMessages: ConversationTurn[] = [
+              ...promptHistory,
+              {
+                role: 'assistant',
+                content: initialLLMRes.content || '',
+                tool_calls: initialLLMRes.toolCalls.map((tc) => ({
+                  id: tc.id || `call_${tc.function.name}`,
+                  type: 'function',
+                  function: tc.function,
+                })),
+                timestamp: new Date(),
+              },
+              ...toolResults.map((tr) => ({
+                role: 'tool' as const,
+                content: tr.output,
+                tool_call_id: `call_${tr.name}`,
+                timestamp: new Date(),
+              })),
+            ];
+
+            const synthesisRes = await this.llmService.chat(
+              {
+                messages: synthesisMessages,
+              },
+              callbacks?.onToken
+            );
+
+            tracer.endNode(
+              'node_synthesis',
+              {
+                content: synthesisRes.content,
+              },
+              {
+                metrics: synthesisRes.metrics,
+              }
+            );
+
+            result = {
+              response: synthesisRes.content,
+              provider: synthesisRes.provider,
+              speak: true,
+            };
+          } else {
+            // Direct LLM conversational answer (no tools required)
+            if (callbacks?.onToken && bufferedTokens) {
+              callbacks.onToken(bufferedTokens);
+            }
+
+            tracer.endNode(
+              'node_reasoning',
+              {
+                decision: 'direct_response',
+                content: initialLLMRes.content,
+              },
+              {
+                metrics: initialLLMRes.metrics,
+              }
+            );
+
+            result = {
+              response: initialLLMRes.content,
+              provider: initialLLMRes.provider,
+              speak: true,
+            };
+          }
         }
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);

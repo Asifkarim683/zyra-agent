@@ -7,6 +7,8 @@ export const DEFAULT_SPEECH_RATE = '+14%';
 export class VoiceService {
   public readonly voiceId = ZYRA_VOICE_ID;
   public readonly defaultRate = DEFAULT_SPEECH_RATE;
+  private audioCache = new Map<string, Buffer>();
+  private maxCacheEntries = 200;
 
   /**
    * Prepares and cleans text for natural, fluid human speech.
@@ -72,16 +74,41 @@ export class VoiceService {
         throw new Error('Empty text after speech sanitization');
       }
 
+      // Check in-memory audio cache for zero-latency playback
+      const cacheKey = `${voice}:${rate}:${pitch}:${speechText}`;
+      const cached = this.audioCache.get(cacheKey);
+      if (cached) {
+        logger.debug(`Audio cache hit for "${speechText.slice(0, 30)}..."`);
+        return cached;
+      }
+
       const tts = new EdgeTTS();
       logger.debug(`Synthesizing Zyra speech (rate: ${rate}): "${speechText.slice(0, 50)}..."`);
 
-      await tts.synthesize(speechText, voice || this.voiceId, {
-        pitch,
-        rate: rate || this.defaultRate,
-        volume: '+0%',
-      });
+      const synthPromise = (async () => {
+        await tts.synthesize(speechText, voice || this.voiceId, {
+          pitch,
+          rate: rate || this.defaultRate,
+          volume: '+0%',
+        });
+        return tts.toBuffer();
+      })();
 
-      return tts.toBuffer();
+      // 4-second timeout guard to prevent WebSocket hangs
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('EdgeTTS synthesis timed out after 4000ms')), 4000)
+      );
+
+      const buffer = await Promise.race([synthPromise, timeoutPromise]);
+
+      // Cache synthesized audio buffer (evict oldest if full)
+      if (this.audioCache.size >= this.maxCacheEntries) {
+        const oldestKey = this.audioCache.keys().next().value;
+        if (oldestKey) this.audioCache.delete(oldestKey);
+      }
+      this.audioCache.set(cacheKey, buffer);
+
+      return buffer;
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error('Voice synthesis failed:', { error: msg });

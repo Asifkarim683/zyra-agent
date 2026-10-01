@@ -8,6 +8,28 @@ interface IWindow extends Window {
 
 export const ZYRA_VOICE_ID = 'en-GB-SoniaNeural';
 
+interface SpeechQueueItem {
+  id: string;
+  text: string;
+  blobPromise: Promise<string | null>;
+}
+
+const fetchAudioBlob = async (text: string): Promise<string | null> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  try {
+    const url = `/api/v1/voice/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    clearTimeout(timeoutId);
+    return null;
+  }
+};
+
 export function useVoice(onSpeechResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -16,18 +38,31 @@ export function useVoice(onSpeechResult: (text: string) => void) {
 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const speechQueueRef = useRef<string[]>([]);
+  const activeBlobUrlRef = useRef<string | null>(null);
+  const speechQueueRef = useRef<SpeechQueueItem[]>([]);
   const isSpeakingRef = useRef(false);
 
   // Stop any playing speech immediately (barge-in)
   const stopSpeaking = useCallback(() => {
+    speechQueueRef.current.forEach((item) => {
+      item.blobPromise.then((url) => {
+        if (url) URL.revokeObjectURL(url);
+      }).catch(() => {});
+    });
     speechQueueRef.current = [];
     isSpeakingRef.current = false;
+
+    if (activeBlobUrlRef.current) {
+      URL.revokeObjectURL(activeBlobUrlRef.current);
+      activeBlobUrlRef.current = null;
+    }
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
       audioRef.current = null;
     }
+
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -90,7 +125,35 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     }
   }, [isListening]);
 
-  const playNextInQueue = useCallback(() => {
+  const speakWithBrowser = useCallback((text: string, onDone: () => void) => {
+    if (!window.speechSynthesis) {
+      onDone();
+      return;
+    }
+    try {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.08;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(
+        (v) =>
+          v.name.includes('Natural') ||
+          v.name.includes('Google UK English Female') ||
+          v.name.includes('George') ||
+          v.name.includes('Samantha') ||
+          v.lang === 'en-GB'
+      );
+      if (preferred) utterance.voice = preferred;
+
+      utterance.onend = () => onDone();
+      utterance.onerror = () => onDone();
+
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      onDone();
+    }
+  }, []);
+
+  const playNextInQueue = useCallback(async () => {
     if (speechQueueRef.current.length === 0) {
       setIsSpeaking(false);
       isSpeakingRef.current = false;
@@ -99,8 +162,8 @@ export function useVoice(onSpeechResult: (text: string) => void) {
 
     if (isSpeakingRef.current) return;
 
-    const nextSentence = speechQueueRef.current.shift();
-    if (!nextSentence) {
+    const nextItem = speechQueueRef.current.shift();
+    if (!nextItem) {
       playNextInQueue();
       return;
     }
@@ -108,40 +171,58 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     isSpeakingRef.current = true;
     setIsSpeaking(true);
 
-    const audioUrl = `/api/v1/voice/tts?text=${encodeURIComponent(nextSentence)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
+    let blobUrl: string | null = null;
+    try {
+      blobUrl = await nextItem.blobPromise;
+    } catch {
+      blobUrl = null;
+    }
 
-    audio.onended = () => {
+    // Check if user barged in / stopped speaking while waiting for blob download
+    if (!isSpeakingRef.current) {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      return;
+    }
+
+    const finishAndAdvance = () => {
+      if (activeBlobUrlRef.current) {
+        URL.revokeObjectURL(activeBlobUrlRef.current);
+        activeBlobUrlRef.current = null;
+      }
       audioRef.current = null;
       isSpeakingRef.current = false;
       playNextInQueue();
     };
 
-    audio.onerror = () => {
-      if (window.speechSynthesis) {
-        const u = new SpeechSynthesisUtterance(nextSentence);
-        u.rate = 1.08;
-        u.onend = () => {
-          isSpeakingRef.current = false;
-          playNextInQueue();
-        };
-        u.onerror = () => {
-          isSpeakingRef.current = false;
-          playNextInQueue();
-        };
-        window.speechSynthesis.speak(u);
-      } else {
-        isSpeakingRef.current = false;
-        playNextInQueue();
-      }
-    };
+    if (blobUrl) {
+      const audio = new Audio(blobUrl);
+      audioRef.current = audio;
+      activeBlobUrlRef.current = blobUrl;
 
-    audio.play().catch(() => {
-      isSpeakingRef.current = false;
-      playNextInQueue();
-    });
-  }, []);
+      audio.onended = finishAndAdvance;
+
+      audio.onerror = () => {
+        if (activeBlobUrlRef.current) {
+          URL.revokeObjectURL(activeBlobUrlRef.current);
+          activeBlobUrlRef.current = null;
+        }
+        audioRef.current = null;
+        speakWithBrowser(nextItem.text, finishAndAdvance);
+      };
+
+      audio.play().catch(() => {
+        if (activeBlobUrlRef.current) {
+          URL.revokeObjectURL(activeBlobUrlRef.current);
+          activeBlobUrlRef.current = null;
+        }
+        audioRef.current = null;
+        speakWithBrowser(nextItem.text, finishAndAdvance);
+      });
+    } else {
+      // Direct speech synthesis fallback if TTS download failed or timed out
+      speakWithBrowser(nextItem.text, finishAndAdvance);
+    }
+  }, [speakWithBrowser]);
 
   const queueSentence = useCallback(
     (sentence: string) => {
@@ -152,7 +233,14 @@ export function useVoice(onSpeechResult: (text: string) => void) {
         .replace(/[*#_~>]/g, '')
         .trim();
       if (!cleaned) return;
-      speechQueueRef.current.push(cleaned);
+
+      const item: SpeechQueueItem = {
+        id: crypto.randomUUID(),
+        text: cleaned,
+        blobPromise: fetchAudioBlob(cleaned),
+      };
+
+      speechQueueRef.current.push(item);
       playNextInQueue();
     },
     [ttsEnabled, playNextInQueue]
@@ -161,59 +249,10 @@ export function useVoice(onSpeechResult: (text: string) => void) {
   const speak = useCallback(
     (text: string) => {
       if (!ttsEnabled) return;
-
-      // Clean text for speech: strip markdown, code, urls
-      const cleaned = text
-        .replace(/`{1,3}[\s\S]*?`{1,3}/g, '')
-        .replace(/https?:\/\/\S+/g, '')
-        .replace(/[*#_~>]/g, '')
-        .trim();
-
-      if (!cleaned) return;
-
       stopSpeaking();
-      setIsSpeaking(true);
-
-      const audioUrl = `/api/v1/voice/tts?text=${encodeURIComponent(cleaned)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setIsSpeaking(false);
-        audioRef.current = null;
-      };
-
-      audio.onerror = () => {
-        console.warn('Neural TTS failed, falling back to browser synthesis.');
-        if (window.speechSynthesis) {
-          const utterance = new SpeechSynthesisUtterance(cleaned);
-          utterance.rate = 1.08;
-          utterance.onend = () => setIsSpeaking(false);
-          utterance.onerror = () => setIsSpeaking(false);
-
-          const voices = window.speechSynthesis.getVoices();
-          const preferred = voices.find(
-            (v) =>
-              v.name.includes('Natural') ||
-              v.name.includes('Google UK English Female') ||
-              v.name.includes('George') ||
-              v.name.includes('Samantha')
-          );
-          if (preferred) utterance.voice = preferred;
-
-          window.speechSynthesis.speak(utterance);
-        } else {
-          setIsSpeaking(false);
-        }
-      };
-
-      audio.play().catch((err) => {
-        console.warn('Audio play was prevented or failed:', err);
-        setIsSpeaking(false);
-      });
+      queueSentence(text);
     },
-    [ttsEnabled, stopSpeaking]
+    [ttsEnabled, stopSpeaking, queueSentence]
   );
 
   return {

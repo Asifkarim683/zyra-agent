@@ -63,6 +63,7 @@ export function App() {
 
       let streamedText = '';
       let sentenceBuffer = '';
+      let isFirstSpeechChunk = true;
 
       try {
         const res = await fetch('/api/v1/chat/stream', {
@@ -114,13 +115,34 @@ export function App() {
                 streamedText += data.token;
                 sentenceBuffer += data.token;
 
-                // Check for sentence boundary to queue early voice output
-                const sentenceEnd = sentenceBuffer.match(/^(.*?[.!?\n])\s*(.*)$/s);
-                if (sentenceEnd) {
-                  const toSpeak = sentenceEnd[1].trim();
-                  sentenceBuffer = sentenceEnd[2];
-                  if (toSpeak) {
+                if (isFirstSpeechChunk) {
+                  // For the very first chunk, trigger early on clause boundary (, ; : - \n) or after 5-6 words
+                  // so the user hears voice output within ~200-300ms without waiting for a full 30-word sentence!
+                  const clauseMatch = sentenceBuffer.match(/^(.*?[,;:—\n])\s*(.*)$/s);
+                  const words = sentenceBuffer.trim().split(/\s+/).filter(Boolean);
+
+                  if (clauseMatch && clauseMatch[1].trim().length >= 8) {
+                    const toSpeak = clauseMatch[1].trim();
+                    sentenceBuffer = clauseMatch[2];
+                    if (toSpeak) {
+                      voice.queueSentence(toSpeak);
+                      isFirstSpeechChunk = false;
+                    }
+                  } else if (words.length >= 6) {
+                    const toSpeak = words.slice(0, 5).join(' ');
+                    sentenceBuffer = words.slice(5).join(' ');
                     voice.queueSentence(toSpeak);
+                    isFirstSpeechChunk = false;
+                  }
+                } else {
+                  // For subsequent chunks, split on complete sentence boundary [.!?\n]
+                  const sentenceEnd = sentenceBuffer.match(/^(.*?[.!?\n])\s*(.*)$/s);
+                  if (sentenceEnd) {
+                    const toSpeak = sentenceEnd[1].trim();
+                    sentenceBuffer = sentenceEnd[2];
+                    if (toSpeak) {
+                      voice.queueSentence(toSpeak);
+                    }
                   }
                 }
 

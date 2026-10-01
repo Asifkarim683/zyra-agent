@@ -50,6 +50,7 @@ export class OllamaProvider {
           temperature: 0.6,
           repeat_penalty: 1.18,
           frequency_penalty: 0.25,
+          num_predict: 260,
         },
       };
 
