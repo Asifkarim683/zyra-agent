@@ -1,3 +1,31 @@
+export interface PipelineNode {
+  id: string;
+  name: string;
+  type: string;
+  status: 'pending' | 'running' | 'completed' | 'skipped' | 'error';
+  durationMs: number;
+  startTime: number;
+  endTime?: number;
+  input?: any;
+  output?: any;
+  details?: Record<string, any>;
+}
+
+export interface PipelineTrace {
+  traceId: string;
+  timestamp: string;
+  prompt: string;
+  totalDurationMs: number;
+  nodes: PipelineNode[];
+  hardware?: {
+    gpuName: string;
+    gpuVramUsedMB: number;
+    gpuVramTotalMB: number;
+    gpuVramPercent: number;
+    systemMemoryPercent: number;
+  };
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -12,6 +40,7 @@ export interface ChatMessage {
   };
   action?: string;
   data?: any;
+  trace?: PipelineTrace;
 }
 
 export interface SystemHealth {

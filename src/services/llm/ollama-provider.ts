@@ -23,10 +23,16 @@ export class OllamaProvider {
     try {
       logger.debug('Sending request to Ollama provider', { model });
 
-      const messages: Array<{ role: string; content: string }> = request.messages.map((turn: ConversationTurn) => ({
-        role: turn.role === 'user' ? 'user' : 'assistant',
-        content: turn.content,
-      }));
+      const messages: any[] = request.messages.map((turn: ConversationTurn) => {
+        const msg: any = {
+          role: turn.role,
+          content: turn.content,
+        };
+        if (turn.tool_calls) {
+          msg.tool_calls = turn.tool_calls;
+        }
+        return msg;
+      });
 
       if (request.systemPrompt) {
         messages.unshift({
@@ -35,19 +41,46 @@ export class OllamaProvider {
         });
       }
 
-      const response = await this.ollama.chat({
+      const chatParams: any = {
         model,
         messages,
         options: {
-          temperature: 0.7,
+          temperature: 0.6,
           repeat_penalty: 1.18,
           frequency_penalty: 0.25,
         },
-      });
+      };
+
+      if (request.tools && request.tools.length > 0) {
+        chatParams.tools = request.tools;
+      }
+
+      const response: any = await this.ollama.chat(chatParams);
+
+      const evalCount = response.eval_count || 0;
+      const evalDurationMs = response.eval_duration ? Math.round(response.eval_duration / 1e6) : 0;
+      const promptEvalDurationMs = response.prompt_eval_duration ? Math.round(response.prompt_eval_duration / 1e6) : 0;
+      const totalDurationMs = response.total_duration ? Math.round(response.total_duration / 1e6) : 0;
+      const tokensPerSecond = evalDurationMs > 0 ? Math.round((evalCount / (evalDurationMs / 1000)) * 10) / 10 : 0;
 
       return {
-        content: response.message.content,
+        content: response.message.content || '',
         provider: 'ollama',
+        tokensUsed: evalCount,
+        toolCalls: response.message.tool_calls?.map((tc: any) => ({
+          id: tc.id,
+          function: {
+            name: tc.function?.name,
+            arguments: tc.function?.arguments || {},
+          },
+        })),
+        metrics: {
+          evalCount,
+          evalDurationMs,
+          promptEvalDurationMs,
+          totalDurationMs,
+          tokensPerSecond,
+        },
       };
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);

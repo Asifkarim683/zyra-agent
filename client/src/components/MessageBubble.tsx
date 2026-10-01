@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play } from 'lucide-react';
 import type { ChatMessage } from '../types';
+import { NodePipelineInspector } from './NodePipelineInspector';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -228,6 +229,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Model Network Node Pipeline Inspector */}
+          {!isUser && message.trace && (
+            <NodePipelineInspector trace={message.trace} />
           )}
         </div>
 

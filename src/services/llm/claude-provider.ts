@@ -25,10 +25,12 @@ export class ClaudeProvider {
     try {
       logger.debug('Sending request to Claude provider', { model: this.defaultModel });
 
-      const messages: Anthropic.MessageParam[] = request.messages.map((turn: ConversationTurn) => ({
-        role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
-        content: turn.content,
-      }));
+      const messages: Anthropic.MessageParam[] = request.messages
+        .filter((turn: ConversationTurn) => turn.role !== 'system')
+        .map((turn: ConversationTurn) => ({
+          role: turn.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+          content: turn.content,
+        }));
 
       const response = await this.client.messages.create({
         model: this.defaultModel,

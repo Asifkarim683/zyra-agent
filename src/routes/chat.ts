@@ -29,6 +29,7 @@ chatRouter.post('/', async (req, res, next) => {
       action: result.action,
       data: result.data,
       speak: result.speak,
+      trace: result.trace,
     });
   } catch (error) {
     next(error);

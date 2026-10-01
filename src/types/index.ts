@@ -7,11 +7,15 @@
  */
 export interface ConversationTurn {
     /** The role of the speaker */
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     /** The text content of the turn */
     content: string;
     /** The timestamp of the turn */
     timestamp: Date;
+    /** Optional tool calls emitted by assistant */
+    tool_calls?: any[];
+    /** Optional tool call ID when role is 'tool' */
+    tool_call_id?: string;
 }
 
 /**
@@ -56,12 +60,22 @@ export interface SkillResult {
     data?: unknown;
     /** Whether the response should be spoken via TTS */
     speak?: boolean;
+    /** Optional pipeline trace monitoring the execution graph */
+    trace?: any;
 }
 
 /**
  * Supported LLM providers.
  */
 export type LLMProvider = 'claude' | 'ollama';
+
+export interface LLMMetrics {
+    promptEvalDurationMs?: number;
+    evalDurationMs?: number;
+    totalDurationMs?: number;
+    evalCount?: number;
+    tokensPerSecond?: number;
+}
 
 /**
  * Request payload for LLM generation.
@@ -73,6 +87,8 @@ export interface LLMRequest {
     systemPrompt?: string;
     /** Maximum number of tokens to generate */
     maxTokens?: number;
+    /** Optional tool definitions for native tool calling */
+    tools?: any[];
 }
 
 /**
@@ -85,6 +101,16 @@ export interface LLMResponse {
     provider: LLMProvider;
     /** Optional token usage statistics */
     tokensUsed?: number;
+    /** Optional tool calls emitted by the model */
+    toolCalls?: Array<{
+        id?: string;
+        function: {
+            name: string;
+            arguments: Record<string, any>;
+        };
+    }>;
+    /** Optional performance and timing telemetry metrics */
+    metrics?: LLMMetrics;
 }
 
 /**

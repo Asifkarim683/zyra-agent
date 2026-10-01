@@ -257,6 +257,17 @@ async function runTests() {
     assert(chatRes.status === 200, 'POST /api/v1/chat returns 200');
     assert(chatJson.provider === 'skill', 'Chat endpoint routed to skill', `Provider: ${chatJson.provider}`);
     assert(chatJson.response.length > 0, 'Chat endpoint returned response', chatJson.response);
+    assert(chatJson.trace !== undefined, 'Chat response includes pipeline trace monitoring graph');
+    assert(Array.isArray(chatJson.trace?.nodes), 'Pipeline trace includes execution nodes array');
+
+    // GET /api/v1/telemetry/nodes
+    const telemetryRes = await fetch(`http://localhost:${testPort}/api/v1/telemetry/nodes`);
+    const telemetryJson = await telemetryRes.json();
+    assert(telemetryRes.status === 200, 'GET /api/v1/telemetry/nodes returns 200');
+    assert(telemetryJson.hardware !== undefined, 'Telemetry payload contains hardware metrics');
+    assert(typeof telemetryJson.hardware.systemMemoryTotalMB === 'number', 'Hardware metrics contain system memory');
+    assert(telemetryJson.model !== undefined, 'Telemetry payload contains model node metrics');
+    assert(Array.isArray(telemetryJson.recentTraces), 'Telemetry payload contains recent execution traces');
 
     // POST & GET /api/v1/routines
     const routineRes = await fetch(`http://localhost:${testPort}/api/v1/routines`, {

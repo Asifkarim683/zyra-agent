@@ -6,6 +6,7 @@ import { routinesRouter } from './routines.js';
 import { voiceRouter } from './voice.js';
 import { memoryRouter } from './memory.js';
 import { automationRouter } from './automation.js';
+import { telemetryRouter } from './telemetry.js';
 
 export const routes = Router();
 
@@ -16,3 +17,4 @@ routes.use('/routines', routinesRouter);
 routes.use('/voice', voiceRouter);
 routes.use('/memory', memoryRouter);
 routes.use('/automation', automationRouter);
+routes.use('/telemetry', telemetryRouter);
