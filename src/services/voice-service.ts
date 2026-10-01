@@ -9,6 +9,7 @@ export class VoiceService {
   public readonly defaultRate = DEFAULT_SPEECH_RATE;
   private audioCache = new Map<string, Buffer>();
   private maxCacheEntries = 200;
+  private synthesisLock: Promise<any> = Promise.resolve();
 
   /**
    * Prepares and cleans text for natural, fluid human speech.
@@ -68,52 +69,74 @@ export class VoiceService {
     pitch: string = '+0Hz',
     rate: string = this.defaultRate
   ): Promise<Buffer> {
-    try {
-      const speechText = this.cleanForSpeech(text);
-      if (!speechText) {
-        throw new Error('Empty text after speech sanitization');
-      }
-
-      // Check in-memory audio cache for zero-latency playback
-      const cacheKey = `${voice}:${rate}:${pitch}:${speechText}`;
-      const cached = this.audioCache.get(cacheKey);
-      if (cached) {
-        logger.debug(`Audio cache hit for "${speechText.slice(0, 30)}..."`);
-        return cached;
-      }
-
-      const tts = new EdgeTTS();
-      logger.debug(`Synthesizing Zyra speech (rate: ${rate}): "${speechText.slice(0, 50)}..."`);
-
-      const synthPromise = (async () => {
-        await tts.synthesize(speechText, voice || this.voiceId, {
-          pitch,
-          rate: rate || this.defaultRate,
-          volume: '+0%',
-        });
-        return tts.toBuffer();
-      })();
-
-      // 4-second timeout guard to prevent WebSocket hangs
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('EdgeTTS synthesis timed out after 4000ms')), 4000)
-      );
-
-      const buffer = await Promise.race([synthPromise, timeoutPromise]);
-
-      // Cache synthesized audio buffer (evict oldest if full)
-      if (this.audioCache.size >= this.maxCacheEntries) {
-        const oldestKey = this.audioCache.keys().next().value;
-        if (oldestKey) this.audioCache.delete(oldestKey);
-      }
-      this.audioCache.set(cacheKey, buffer);
-
-      return buffer;
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error('Voice synthesis failed:', { error: msg });
-      throw new Error(`TTS synthesis error: ${msg}`);
+    const speechText = this.cleanForSpeech(text);
+    if (!speechText) {
+      throw new Error('Empty text after speech sanitization');
     }
+
+    // 1. Check in-memory audio cache for zero-latency playback (instant, lock-free)
+    const cacheKey = `${voice}:${rate}:${pitch}:${speechText}`;
+    const cached = this.audioCache.get(cacheKey);
+    if (cached) {
+      logger.debug(`Audio cache hit for "${speechText.slice(0, 30)}..."`);
+      return cached;
+    }
+
+    // 2. Queue and serialize WebSocket syntheses through synthesisLock
+    // This prevents concurrent WebSocket collisions with Microsoft's servers, eliminating 500 errors and voice drops.
+    const executeSynthesis = async (): Promise<Buffer> => {
+      // Re-check cache in case an earlier queued request synthesized identical text
+      const cachedAgain = this.audioCache.get(cacheKey);
+      if (cachedAgain) return cachedAgain;
+
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const tts = new EdgeTTS();
+          logger.debug(`Synthesizing Zyra speech (attempt ${attempt}, rate: ${rate}): "${speechText.slice(0, 50)}..."`);
+
+          const synthPromise = (async () => {
+            await tts.synthesize(speechText, voice || this.voiceId, {
+              pitch,
+              rate: rate || this.defaultRate,
+              volume: '+0%',
+            });
+            return tts.toBuffer();
+          })();
+
+          // 10-second timeout guard per attempt
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('EdgeTTS synthesis timed out after 10000ms')), 10000)
+          );
+
+          const buffer = await Promise.race([synthPromise, timeoutPromise]);
+
+          // Cache synthesized audio buffer (evict oldest if full)
+          if (this.audioCache.size >= this.maxCacheEntries) {
+            const oldestKey = this.audioCache.keys().next().value;
+            if (oldestKey) this.audioCache.delete(oldestKey);
+          }
+          this.audioCache.set(cacheKey, buffer);
+
+          return buffer;
+        } catch (error: unknown) {
+          lastError = error;
+          const msg = error instanceof Error ? error.message : String(error);
+          logger.warn(`Voice synthesis attempt ${attempt} failed: ${msg}`);
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      const finalMsg = lastError instanceof Error ? lastError.message : String(lastError);
+      logger.error('Voice synthesis failed after retries:', { error: finalMsg });
+      throw new Error(`TTS synthesis error: ${finalMsg}`);
+    };
+
+    const task = this.synthesisLock.then(executeSynthesis, executeSynthesis);
+    this.synthesisLock = task.then(() => {}, () => {});
+    return task;
   }
 
   /**

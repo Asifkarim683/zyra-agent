@@ -14,20 +14,26 @@ interface SpeechQueueItem {
   blobPromise: Promise<string | null>;
 }
 
-const fetchAudioBlob = async (text: string): Promise<string | null> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
-  try {
-    const url = `/api/v1/voice/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  } catch {
-    clearTimeout(timeoutId);
-    return null;
+const fetchAudioBlob = async (text: string, retries = 2): Promise<string | null> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 11000);
+    try {
+      const url = `/api/v1/voice/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+      }
+    } catch {
+      clearTimeout(timeoutId);
+    }
+    if (attempt < retries) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
   }
+  return null;
 };
 
 export function useVoice(onSpeechResult: (text: string) => void) {
@@ -125,6 +131,24 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     }
   }, [isListening]);
 
+  const findZyraVoice = useCallback(() => {
+    if (!window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    // Strictly match British female voices so browser fallback aligns with Zyra's persona
+    return (
+      voices.find((v) => v.name.includes('Sonia')) ||
+      voices.find((v) => v.name.includes('Libby') || v.name.includes('Maisie') || v.name.includes('Mia')) ||
+      voices.find((v) => v.name.includes('Hazel') || v.name.includes('Susan')) ||
+      voices.find((v) => v.name.includes('Google UK English Female')) ||
+      voices.find((v) => v.lang === 'en-GB' && !v.name.includes('George') && !v.name.includes('Ryan')) ||
+      voices.find((v) => v.lang === 'en-GB') ||
+      voices.find((v) => (v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Jenny')) && v.lang.startsWith('en')) ||
+      null
+    );
+  }, []);
+
   const speakWithBrowser = useCallback((text: string, onDone: () => void) => {
     if (!window.speechSynthesis) {
       onDone();
@@ -132,17 +156,12 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     }
     try {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.08;
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(
-        (v) =>
-          v.name.includes('Natural') ||
-          v.name.includes('Google UK English Female') ||
-          v.name.includes('George') ||
-          v.name.includes('Samantha') ||
-          v.lang === 'en-GB'
-      );
-      if (preferred) utterance.voice = preferred;
+      utterance.rate = 1.05;
+      const voice = findZyraVoice();
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang || 'en-GB';
+      }
 
       utterance.onend = () => onDone();
       utterance.onerror = () => onDone();
@@ -151,7 +170,7 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     } catch {
       onDone();
     }
-  }, []);
+  }, [findZyraVoice]);
 
   const playNextInQueue = useCallback(async () => {
     if (speechQueueRef.current.length === 0) {
@@ -207,7 +226,8 @@ export function useVoice(onSpeechResult: (text: string) => void) {
           activeBlobUrlRef.current = null;
         }
         audioRef.current = null;
-        speakWithBrowser(nextItem.text, finishAndAdvance);
+        // Cleanly advance to the next sentence; never abruptly switch to a different voice mid-conversation
+        finishAndAdvance();
       };
 
       audio.play().catch(() => {
@@ -216,13 +236,13 @@ export function useVoice(onSpeechResult: (text: string) => void) {
           activeBlobUrlRef.current = null;
         }
         audioRef.current = null;
-        speakWithBrowser(nextItem.text, finishAndAdvance);
+        finishAndAdvance();
       });
     } else {
-      // Direct speech synthesis fallback if TTS download failed or timed out
-      speakWithBrowser(nextItem.text, finishAndAdvance);
+      // If neural audio was unavailable for this chunk, cleanly advance rather than jumping to a jarring robotic voice
+      finishAndAdvance();
     }
-  }, [speakWithBrowser]);
+  }, []);
 
   const queueSentence = useCallback(
     (sentence: string) => {
@@ -247,12 +267,27 @@ export function useVoice(onSpeechResult: (text: string) => void) {
   );
 
   const speak = useCallback(
-    (text: string) => {
+    async (text: string) => {
       if (!ttsEnabled) return;
       stopSpeaking();
-      queueSentence(text);
+      const cleaned = text
+        .replace(/`{1,3}[\s\S]*?`{1,3}/g, '')
+        .replace(/https?:\/\/\S+/g, '')
+        .replace(/[*#_~>]/g, '')
+        .trim();
+      if (!cleaned) return;
+
+      const blobUrl = await fetchAudioBlob(cleaned, 1);
+      if (blobUrl) {
+        queueSentence(cleaned);
+      } else {
+        // Fall back to matching British female browser synthesis only when completely offline
+        speakWithBrowser(cleaned, () => {
+          setIsSpeaking(false);
+        });
+      }
     },
-    [ttsEnabled, stopSpeaking, queueSentence]
+    [ttsEnabled, stopSpeaking, queueSentence, speakWithBrowser]
   );
 
   return {
