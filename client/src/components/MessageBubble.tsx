@@ -134,7 +134,54 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               borderRadius: '2px',
             }}
           />
+
+          {/* Real-time status text during tool execution */}
+          {!isUser && message.statusText && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 8px',
+                marginBottom: message.content ? '8px' : '0',
+                borderRadius: '6px',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                fontSize: '11.5px',
+                fontFamily: 'monospace',
+                color: '#38bdf8',
+              }}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#00f2fe',
+                  boxShadow: '0 0 8px #00f2fe',
+                }}
+              />
+              <span>{message.statusText}</span>
+            </div>
+          )}
+
           {message.content}
+
+          {/* Real-time streaming cursor */}
+          {!isUser && message.isStreaming && (
+            <span
+              style={{
+                display: 'inline-block',
+                width: '6px',
+                height: '14px',
+                background: '#00f2fe',
+                marginLeft: '4px',
+                verticalAlign: 'text-bottom',
+                borderRadius: '1px',
+                boxShadow: '0 0 8px #00f2fe',
+              }}
+            />
+          )}
 
           {/* System Automation Confirmation Card */}
           {message.action === 'pending_confirmation' && (

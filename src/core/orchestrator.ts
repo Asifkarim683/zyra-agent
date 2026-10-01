@@ -11,6 +11,11 @@ import type { SkillResult, SkillContext, IntentMatch, ConversationTurn } from '.
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
 
+export interface ProcessCallbacks {
+  onToken?: (token: string) => void;
+  onStatus?: (status: string) => void;
+}
+
 export interface ProcessResult extends SkillResult {
   intent?: IntentMatch;
   provider?: string;
@@ -53,9 +58,14 @@ export class Orchestrator {
    *
    * @param input The user prompt to process.
    * @param conversationId The identifier for the current conversation.
+   * @param callbacks Optional callbacks for real-time token streaming and status updates.
    * @returns The result of execution alongside the complete node pipeline trace.
    */
-  public async process(input: string, conversationId: string): Promise<ProcessResult> {
+  public async process(
+    input: string,
+    conversationId: string,
+    callbacks?: ProcessCallbacks
+  ): Promise<ProcessResult> {
     const tracer = new PipelineTracer(input);
 
     // ── Node 1: Ingestion & Safety Node ────────────────────────────────────
@@ -111,6 +121,9 @@ export class Orchestrator {
             history: this.conversationManager.getHistory(conversationId),
           };
           const skillResult = await skill.execute(context);
+          if (callbacks?.onToken && skillResult.response) {
+            callbacks.onToken(skillResult.response);
+          }
           result = {
             ...skillResult,
             intent: match,
@@ -146,10 +159,16 @@ export class Orchestrator {
       });
 
       try {
-        const initialLLMRes = await this.llmService.chat({
-          messages: history,
-          tools: TOOL_SCHEMAS,
-        });
+        callbacks?.onStatus?.('Thinking & planning tools...');
+        const initialLLMRes = await this.llmService.chat(
+          {
+            messages: history,
+            tools: TOOL_SCHEMAS,
+          },
+          (token: string) => {
+            callbacks?.onToken?.(token);
+          }
+        );
 
         // Check if LLM decided to invoke one or more tools
         if (initialLLMRes.toolCalls && initialLLMRes.toolCalls.length > 0) {
@@ -171,6 +190,7 @@ export class Orchestrator {
             const tc = initialLLMRes.toolCalls[i];
             const toolNodeId = `node_tool_${tc.function.name}_${i}`;
             tracer.startNode(toolNodeId, `Tool Execution: ${tc.function.name}`, 'tool', tc.function.arguments);
+            callbacks?.onStatus?.(`Executing live tool: ${tc.function.name}...`);
 
             const toolRes = await executeTool(tc.function.name, tc.function.arguments, {
               registry: this.registry,
@@ -192,6 +212,7 @@ export class Orchestrator {
           tracer.startNode('node_synthesis', 'Response Synthesis', 'synthesis', {
             toolsApplied: toolResults.map((t) => t.name),
           });
+          callbacks?.onStatus?.('Synthesizing verified response...');
 
           // Build synthesis turn history with assistant's tool call and tool responses
           const synthesisMessages: ConversationTurn[] = [
@@ -214,9 +235,12 @@ export class Orchestrator {
             })),
           ];
 
-          const synthesisRes = await this.llmService.chat({
-            messages: synthesisMessages,
-          });
+          const synthesisRes = await this.llmService.chat(
+            {
+              messages: synthesisMessages,
+            },
+            callbacks?.onToken
+          );
 
           tracer.endNode(
             'node_synthesis',

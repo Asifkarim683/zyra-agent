@@ -16,9 +16,13 @@ export function useVoice(onSpeechResult: (text: string) => void) {
 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const speechQueueRef = useRef<string[]>([]);
+  const isSpeakingRef = useRef(false);
 
   // Stop any playing speech immediately (barge-in)
   const stopSpeaking = useCallback(() => {
+    speechQueueRef.current = [];
+    isSpeakingRef.current = false;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
@@ -85,6 +89,74 @@ export function useVoice(onSpeechResult: (text: string) => void) {
       setIsListening(false);
     }
   }, [isListening]);
+
+  const playNextInQueue = useCallback(() => {
+    if (speechQueueRef.current.length === 0) {
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      return;
+    }
+
+    if (isSpeakingRef.current) return;
+
+    const nextSentence = speechQueueRef.current.shift();
+    if (!nextSentence) {
+      playNextInQueue();
+      return;
+    }
+
+    isSpeakingRef.current = true;
+    setIsSpeaking(true);
+
+    const audioUrl = `/api/v1/voice/tts?text=${encodeURIComponent(nextSentence)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.onended = () => {
+      audioRef.current = null;
+      isSpeakingRef.current = false;
+      playNextInQueue();
+    };
+
+    audio.onerror = () => {
+      if (window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance(nextSentence);
+        u.rate = 1.08;
+        u.onend = () => {
+          isSpeakingRef.current = false;
+          playNextInQueue();
+        };
+        u.onerror = () => {
+          isSpeakingRef.current = false;
+          playNextInQueue();
+        };
+        window.speechSynthesis.speak(u);
+      } else {
+        isSpeakingRef.current = false;
+        playNextInQueue();
+      }
+    };
+
+    audio.play().catch(() => {
+      isSpeakingRef.current = false;
+      playNextInQueue();
+    });
+  }, []);
+
+  const queueSentence = useCallback(
+    (sentence: string) => {
+      if (!ttsEnabled) return;
+      const cleaned = sentence
+        .replace(/`{1,3}[\s\S]*?`{1,3}/g, '')
+        .replace(/https?:\/\/\S+/g, '')
+        .replace(/[*#_~>]/g, '')
+        .trim();
+      if (!cleaned) return;
+      speechQueueRef.current.push(cleaned);
+      playNextInQueue();
+    },
+    [ttsEnabled, playNextInQueue]
+  );
 
   const speak = useCallback(
     (text: string) => {
@@ -154,5 +226,6 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     stopListening,
     stopSpeaking,
     speak,
+    queueSentence,
   };
 }

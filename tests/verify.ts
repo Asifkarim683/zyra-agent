@@ -261,6 +261,20 @@ async function runTests() {
     assert(chatJson.trace !== undefined, 'Chat response includes pipeline trace monitoring graph');
     assert(Array.isArray(chatJson.trace?.nodes), 'Pipeline trace includes execution nodes array');
 
+    // POST /api/v1/chat/stream (SSE Real-Time Token Streaming)
+    const streamRes = await fetch(`http://localhost:${testPort}/api/v1/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'what time is it' }),
+    });
+    assert(streamRes.status === 200, 'POST /api/v1/chat/stream returns 200');
+    assert(streamRes.headers.get('content-type')?.includes('text/event-stream') === true, 'Stream endpoint returns text/event-stream');
+    const streamBody = await streamRes.text();
+    assert(streamBody.includes('event: start'), 'Stream payload includes start event');
+    assert(streamBody.includes('event: token'), 'Stream payload includes token events');
+    assert(streamBody.includes('event: done'), 'Stream payload includes done event');
+    assert(streamBody.includes('traceId'), 'Stream done event contains trace metadata');
+
     // GET /api/v1/telemetry/nodes
     const telemetryRes = await fetch(`http://localhost:${testPort}/api/v1/telemetry/nodes`);
     const telemetryJson = await telemetryRes.json();

@@ -46,11 +46,26 @@ export function App() {
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, userMessage]);
+      const assistantMessageId = crypto.randomUUID();
+      const assistantPlaceholder: ChatMessage = {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isStreaming: true,
+      };
+
+      setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
       setIsLoading(true);
 
+      // Stop any active speech on new query
+      voice.stopSpeaking();
+
+      let streamedText = '';
+      let sentenceBuffer = '';
+
       try {
-        const res = await fetch('/api/v1/chat', {
+        const res = await fetch('/api/v1/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -59,40 +74,118 @@ export function App() {
           }),
         });
 
-        if (!res.ok) {
+        if (!res.ok || !res.body) {
           throw new Error(`Server returned ${res.status}`);
         }
 
-        const data = await res.json();
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        const assistantMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: data.response,
-          timestamp: new Date(),
-          provider: data.provider,
-          intent: data.intent,
-          action: data.action,
-          data: data.data,
-          trace: data.trace,
-        };
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        setMessages((prev) => [...prev, assistantMessage]);
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
 
-        // Speak response using Zyra's exclusive voice
-        if (data.response) {
-          voice.speak(data.response);
+          for (const part of parts) {
+            if (!part.trim()) continue;
+
+            const lines = part.split('\n');
+            let event = '';
+            let dataStr = '';
+
+            for (const line of lines) {
+              if (line.startsWith('event: ')) {
+                event = line.slice(7).trim();
+              } else if (line.startsWith('data: ')) {
+                dataStr = line.slice(6).trim();
+              }
+            }
+
+            if (!dataStr) continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (event === 'token' && data.token) {
+                streamedText += data.token;
+                sentenceBuffer += data.token;
+
+                // Check for sentence boundary to queue early voice output
+                const sentenceEnd = sentenceBuffer.match(/^(.*?[.!?\n])\s*(.*)$/s);
+                if (sentenceEnd) {
+                  const toSpeak = sentenceEnd[1].trim();
+                  sentenceBuffer = sentenceEnd[2];
+                  if (toSpeak) {
+                    voice.queueSentence(toSpeak);
+                  }
+                }
+
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessageId
+                      ? { ...m, content: streamedText, statusText: undefined }
+                      : m
+                  )
+                );
+              } else if (event === 'status' && data.status) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessageId
+                      ? { ...m, statusText: data.status }
+                      : m
+                  )
+                );
+              } else if (event === 'done') {
+                // Speak any remaining sentence buffer
+                if (sentenceBuffer.trim()) {
+                  voice.queueSentence(sentenceBuffer.trim());
+                  sentenceBuffer = '';
+                }
+
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessageId
+                      ? {
+                          ...m,
+                          content: data.response || streamedText,
+                          isStreaming: false,
+                          statusText: undefined,
+                          provider: data.provider,
+                          intent: data.intent,
+                          action: data.action,
+                          data: data.data,
+                          trace: data.trace,
+                        }
+                      : m
+                  )
+                );
+              } else if (event === 'error') {
+                throw new Error(data.error || 'Stream error');
+              }
+            } catch {
+              // Partial JSON or heartbeat
+            }
+          }
         }
       } catch (err: any) {
-        const errorMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: `Connection error: ${err.message}. Is the Zyra server running?`,
-          timestamp: new Date(),
-          provider: 'system',
-          action: 'error',
-        };
-        setMessages((prev) => [...prev, errorMessage]);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content: `Connection error: ${err.message}. Is the Zyra server running?`,
+                  isStreaming: false,
+                  statusText: undefined,
+                  provider: 'system',
+                  action: 'error',
+                }
+              : m
+          )
+        );
       } finally {
         setIsLoading(false);
       }

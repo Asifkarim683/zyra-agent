@@ -41,6 +41,8 @@ export interface ChatMessage {
   action?: string;
   data?: any;
   trace?: PipelineTrace;
+  isStreaming?: boolean;
+  statusText?: string;
 }
 
 export interface SystemHealth {

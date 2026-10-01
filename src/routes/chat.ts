@@ -37,6 +37,61 @@ chatRouter.post('/', async (req, res, next) => {
 });
 
 /**
+ * @route POST /api/v1/chat/stream
+ * @description Streams a chat message response in real-time via Server-Sent Events (SSE).
+ */
+chatRouter.post('/stream', async (req, res, next) => {
+  try {
+    const parsed = chatRequestSchema.parse(req.body);
+    const conversationId = parsed.conversationId || uuidv4();
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (typeof (res as any).flushHeaders === 'function') {
+      (res as any).flushHeaders();
+    }
+
+    const sendEvent = (event: string, payload: any) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    sendEvent('start', { conversationId });
+
+    const result = await orchestrator.process(parsed.message, conversationId, {
+      onToken: (token: string) => {
+        sendEvent('token', { token });
+      },
+      onStatus: (status: string) => {
+        sendEvent('status', { status });
+      },
+    });
+
+    sendEvent('done', {
+      conversationId,
+      response: result.response,
+      intent: result.intent,
+      provider: result.provider,
+      action: result.action,
+      data: result.data,
+      speak: result.speak,
+      trace: result.trace,
+    });
+
+    res.end();
+  } catch (error) {
+    if (!res.headersSent) {
+      next(error);
+    } else {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.write(`event: error\ndata: ${JSON.stringify({ error: msg })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+/**
  * @route GET /api/v1/chat/:conversationId/history
  * @description Retrieves the conversation history for a given conversation ID.
  */

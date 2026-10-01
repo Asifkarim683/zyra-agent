@@ -88,10 +88,12 @@ NO DESKTOP APP AUTOMATION:
 
   /**
    * Executes a chat completion request using the configured strategy.
+   * If onChunk is provided, streams token chunks progressively.
    * @param request The chat request parameters.
+   * @param onChunk Optional streaming callback for tokens.
    * @returns The generated response.
    */
-  async chat(request: LLMRequest): Promise<LLMResponse> {
+  async chat(request: LLMRequest, onChunk?: (token: string) => void): Promise<LLMResponse> {
     const mode = config.llmMode;
     const enhancedRequest: LLMRequest = {
       ...request,
@@ -103,19 +105,23 @@ NO DESKTOP APP AUTOMATION:
     try {
       if (mode === 'cloud') {
         logger.info('Using Claude provider (cloud mode)');
-        return await this.providers.claude.chat(enhancedRequest);
+        const res = await this.providers.claude.chat(enhancedRequest);
+        if (onChunk && res.content) onChunk(res.content);
+        return res;
       } else if (mode === 'local') {
         logger.info('Using Ollama provider (local mode)');
-        return await this.providers.ollama.chat(enhancedRequest);
+        return await this.providers.ollama.chat(enhancedRequest, onChunk);
       } else {
         // 'auto' mode — try Claude first, fallback to Ollama
         try {
           logger.info('Attempting Claude provider (auto mode)');
-          return await this.providers.claude.chat(enhancedRequest);
+          const res = await this.providers.claude.chat(enhancedRequest);
+          if (onChunk && res.content) onChunk(res.content);
+          return res;
         } catch (error: unknown) {
           const msg = error instanceof Error ? error.message : String(error);
           logger.warn(`Claude failed, failing over to Ollama: ${msg}`);
-          return await this.providers.ollama.chat(enhancedRequest);
+          return await this.providers.ollama.chat(enhancedRequest, onChunk);
         }
       }
     } catch (error: unknown) {
