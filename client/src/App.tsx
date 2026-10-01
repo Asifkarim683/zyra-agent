@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { ChatArea } from './components/ChatArea';
 import { QuickRoutines } from './components/QuickRoutines';
@@ -53,19 +53,45 @@ export function App() {
     return newId;
   });
 
-  const handleNewChat = useCallback(() => {
-    setMessages([]);
-    const newId = crypto.randomUUID();
-    localStorage.setItem('zyra_conv_id', newId);
-    setConversationId(newId);
-  }, []);
+  const handleSendMessageRef = useRef<(text: string) => void>(() => {});
 
   // Initialize voice hook with Zyra's exclusive voice
   const voice = useVoice((spokenText) => {
     if (spokenText.trim()) {
-      handleSendMessage(spokenText.trim());
+      handleSendMessageRef.current(spokenText.trim());
     }
   });
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleStop = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    voice.stopSpeaking();
+    setIsLoading(false);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.isStreaming
+          ? {
+              ...m,
+              isStreaming: false,
+              statusText: undefined,
+              content: m.content ? `${m.content} [Stopped]` : 'Process stopped.',
+            }
+          : m
+      )
+    );
+  }, [voice]);
+
+  const handleNewChat = useCallback(() => {
+    handleStop();
+    setMessages([]);
+    const newId = crypto.randomUUID();
+    localStorage.setItem('zyra_conv_id', newId);
+    setConversationId(newId);
+  }, [handleStop]);
 
   const handleSendMessage = useCallback(
     async (text: string) => {
@@ -94,10 +120,14 @@ export function App() {
       let streamedText = '';
       let sentenceBuffer = '';
 
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       try {
         const res = await fetch('/api/v1/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: abortController.signal,
           body: JSON.stringify({
             message: text,
             conversationId,
@@ -204,6 +234,9 @@ export function App() {
           }
         }
       } catch (err: any) {
+        if (err.name === 'AbortError') {
+          return;
+        }
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessageId
@@ -219,11 +252,14 @@ export function App() {
           )
         );
       } finally {
+        abortControllerRef.current = null;
         setIsLoading(false);
       }
     },
     [conversationId, voice]
   );
+
+  handleSendMessageRef.current = handleSendMessage;
 
   // Fetch telemetry and routines
   const loadSystemInfo = async () => {
@@ -288,6 +324,7 @@ export function App() {
           messages={messages}
           isLoading={isLoading}
           onSendMessage={handleSendMessage}
+          onStop={handleStop}
           isListening={voice.isListening}
           isSpeaking={voice.isSpeaking}
           isVoiceSupported={voice.isSupported}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Loader2, RotateCcw } from 'lucide-react';
+import { Send, Mic, MicOff, Loader2, RotateCcw, Square } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { AiOrb3D, type OrbState } from './AiOrb3D';
 import type { ChatMessage } from '../types';
@@ -9,6 +9,7 @@ interface ChatAreaProps {
   isLoading: boolean;
   isSpeaking: boolean;
   onSendMessage: (text: string) => void;
+  onStop?: () => void;
   isListening: boolean;
   isVoiceSupported: boolean;
   onStartListening: () => void;
@@ -21,6 +22,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   isLoading,
   isSpeaking,
   onSendMessage,
+  onStop,
   isListening,
   isVoiceSupported,
   onStartListening,
@@ -47,6 +49,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isLoading && onStop) {
+        onStop();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLoading, onStop]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -313,10 +325,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'space-between',
               gap: '10px',
               color: 'var(--accent-violet)',
               fontSize: '12.5px',
-              padding: '12px 16px',
+              padding: '10px 14px',
               borderRadius: '10px',
               background: 'rgba(168, 85, 247, 0.08)',
               border: '1px solid rgba(168, 85, 247, 0.25)',
@@ -324,8 +337,43 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               fontFamily: 'var(--font-mono)',
             }}
           >
-            <Loader2 size={16} className="animate-spin" />
-            <span>Zyra is reasoning and synthesizing response...</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Loader2 size={16} className="animate-spin" color="#c084fc" />
+              <span>Zyra is reasoning and synthesizing response...</span>
+            </div>
+            {onStop && (
+              <button
+                type="button"
+                onClick={onStop}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#f87171',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-mono)',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+                  e.currentTarget.style.borderColor = '#ef4444';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                }}
+                title="Stop generation & speech (Esc)"
+              >
+                <Square size={10} fill="currentColor" />
+                <span>STOP</span>
+              </button>
+            )}
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -392,31 +440,68 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           }}
         />
 
-        <button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '10px',
-            background:
-              input.trim() && !isLoading
-                ? 'linear-gradient(135deg, #00f2fe 0%, #38bdf8 100%)'
-                : 'rgba(255, 255, 255, 0.04)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            cursor: input.trim() && !isLoading ? 'pointer' : 'not-allowed',
-            boxShadow:
-              input.trim() && !isLoading ? '0 0 18px rgba(0, 242, 254, 0.4)' : 'none',
-          }}
-        >
-          <Send
-            size={18}
-            color={input.trim() && !isLoading ? '#030712' : '#64748b'}
-          />
-        </button>
+        {isLoading ? (
+          <button
+            type="button"
+            onClick={onStop}
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(185, 28, 28, 0.4) 100%)',
+              border: '1px solid rgba(239, 68, 68, 0.65)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              cursor: 'pointer',
+              boxShadow: '0 0 18px rgba(239, 68, 68, 0.45)',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.45) 0%, rgba(185, 28, 28, 0.6) 100%)';
+              e.currentTarget.style.boxShadow = '0 0 24px rgba(239, 68, 68, 0.7)';
+              e.currentTarget.style.borderColor = '#ef4444';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(185, 28, 28, 0.4) 100%)';
+              e.currentTarget.style.boxShadow = '0 0 18px rgba(239, 68, 68, 0.45)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.65)';
+            }}
+            title="Stop generation & speech (Esc)"
+          >
+            <Square size={16} color="#fca5a5" fill="#fca5a5" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              background:
+                input.trim()
+                  ? 'linear-gradient(135deg, #00f2fe 0%, #38bdf8 100%)'
+                  : 'rgba(255, 255, 255, 0.04)',
+              border: input.trim() ? 'none' : '1px solid var(--border-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              cursor: input.trim() ? 'pointer' : 'not-allowed',
+              boxShadow:
+                input.trim() ? '0 0 18px rgba(0, 242, 254, 0.4)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+            title="Send Message"
+          >
+            <Send
+              size={18}
+              color={input.trim() ? '#030712' : '#64748b'}
+            />
+          </button>
+        )}
       </form>
     </div>
   );
