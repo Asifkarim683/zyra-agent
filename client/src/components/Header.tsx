@@ -1,4 +1,4 @@
-import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Database, Plus, Activity, BookOpen } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Plus, Activity, BookOpen } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
@@ -6,7 +6,6 @@ interface HeaderProps {
   ttsEnabled: boolean;
   onToggleTts: () => void;
   onOpenRoutines: () => void;
-  onOpenMemory?: () => void;
   onOpenKnowledge?: () => void;
   onNewChat?: () => void;
 }
@@ -16,7 +15,6 @@ export const Header: React.FC<HeaderProps> = ({
   ttsEnabled,
   onToggleTts,
   onOpenRoutines,
-  onOpenMemory,
   onOpenKnowledge,
   onNewChat,
 }) => {
@@ -102,42 +100,6 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Sci-Fi HUD Action Telemetry */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {/* SQLite Memory Badge Button */}
-        <button
-          onClick={onOpenMemory}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '5px 10px',
-            borderRadius: '8px',
-            background: 'rgba(10, 18, 36, 0.6)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: '11px',
-            color: 'var(--text-secondary)',
-            fontFamily: 'var(--font-mono)',
-            cursor: onOpenMemory ? 'pointer' : 'default',
-          }}
-          onMouseEnter={(e) => {
-            if (onOpenMemory) {
-              e.currentTarget.style.borderColor = '#10b981';
-              e.currentTarget.style.color = '#ffffff';
-              e.currentTarget.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.2)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (onOpenMemory) {
-              e.currentTarget.style.borderColor = 'var(--border-subtle)';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-              e.currentTarget.style.boxShadow = 'none';
-            }
-          }}
-          title="Click to view & edit persistent SQLite memory"
-        >
-          <Database size={12} color="#10b981" />
-          <span>MEMORY: <strong style={{ color: '#10b981' }}>SQLITE</strong></span>
-        </button>
-
         {/* Local Knowledge Base / RAG Button */}
         <button
           onClick={onOpenKnowledge}
