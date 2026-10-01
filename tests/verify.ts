@@ -123,9 +123,10 @@ async function runTests() {
   assert(listTasksResult.provider === 'skill', 'List tasks routed to skill');
   assert(listTasksResult.response.includes('review pull request'), 'List tasks shows added task', listTasksResult.response);
 
-  // Verify that system automation is detached from the active model orchestrator
+  // Verify that desktop application automation is strictly blocked in orchestrator
   const modelAutomationCheck = await orchestrator.process('open calculator', convId);
   assert(modelAutomationCheck.intent?.skill !== 'system_automation', 'System automation skill is inactive in the active model');
+  assert(modelAutomationCheck.response.includes('disabled'), 'Model explicitly refuses to open applications', modelAutomationCheck.response);
 
   // Test Standalone System Automation (Preserved as an idea for future integration)
   const { SystemAutomationSkill } = await import('../src/skills/system-automation-skill.js');
@@ -147,13 +148,13 @@ async function runTests() {
   assert(stageSkillResult.action === 'pending_confirmation', 'Standalone skill stages allowlisted app with confirmation');
   assert(stageSkillResult.response.includes('confirm to proceed'), 'Standalone skill requests user confirmation', stageSkillResult.response);
 
-  // Test Confirmation via Standalone Skill
+  // Test Confirmation via Standalone Skill (Verifying execution is strictly disabled)
   const confirmSkillResult = await standaloneAutomationSkill.execute({
     intent: { intent: 'confirm_action', skill: 'system_automation', confidence: 1, raw: 'confirm' },
     conversationId: convId,
   });
-  assert(confirmSkillResult.action === 'automation_executed', 'Standalone skill executes confirmed action');
-  assert(confirmSkillResult.response.includes('launched'), 'Standalone skill acknowledges app execution', confirmSkillResult.response);
+  assert(confirmSkillResult.action === 'automation_error', 'Standalone skill blocks app execution when disabled');
+  assert(confirmSkillResult.response.includes('disabled'), 'Standalone skill acknowledges automation is disabled', confirmSkillResult.response);
 
   // Test System Automation Allowlist & Safe Availability Checks
   const { ALLOWED_APPS } = await import('../src/services/system-automation-service.js');

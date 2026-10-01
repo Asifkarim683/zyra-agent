@@ -77,7 +77,7 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'manage_timer',
-      description: 'Set, check status, or cancel a timer',
+      description: 'Manage countdown timers for minutes or seconds: set a timer, check remaining time, or cancel an active timer. Do NOT use for calculation or math.',
       parameters: {
         type: 'object',
         properties: {

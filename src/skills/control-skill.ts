@@ -17,6 +17,9 @@ export class ControlSkill extends BaseSkill {
    * @returns The skill result acknowledging the command.
    */
   async execute(context: SkillContext): Promise<SkillResult> {
+    if (context.intent.intent === 'app_launch_disabled') {
+      return this.success('Desktop application automation is currently disabled. I do not have access to launch or control PC applications.');
+    }
     return this.success('Okay.');
   }
 }

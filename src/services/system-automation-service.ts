@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process';
+import { execSync } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../config/logger.js';
 import type { DatabaseService } from './database.js';
@@ -356,64 +356,16 @@ export class SystemAutomationService {
     // Clear pending state prior to execution
     this.pendingAction = null;
 
-    try {
-      logger.info(`Executing confirmed system automation: ${app.name} via target "${target}"`);
-
-      if (process.platform === 'win32') {
-        // On Windows, use Windows Shell 'start' to ensure interactive WindowStation attach for GUI apps
-        const proc = spawn('cmd.exe', ['/c', 'start', '', target], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-        });
-
-        proc.on('error', (err) => {
-          logger.error(`Error executing Windows target ${target}: ${err.message}`);
-        });
-
-        proc.unref();
-      } else if (process.platform === 'darwin') {
-        const args = target.endsWith(':') ? [target] : ['-a', target];
-        const proc = spawn('open', args, {
-          detached: true,
-          stdio: 'ignore',
-        });
-
-        proc.on('error', (err) => {
-          logger.error(`Error executing macOS target ${target}: ${err.message}`);
-        });
-
-        proc.unref();
-      } else {
-        const proc = spawn('xdg-open', [target], {
-          detached: true,
-          stdio: 'ignore',
-        });
-
-        proc.on('error', (err) => {
-          logger.error(`Error executing Linux target ${target}: ${err.message}`);
-        });
-
-        proc.unref();
-      }
-
-      if (this.dbService) {
-        this.dbService.logAutomationAudit(action.id, 'launch_app', app.name, 'executed');
-      }
-
-      return {
-        success: true,
-        target: app.name,
-        message: `Confirmed. I've launched ${app.name} for you.`,
-      };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error(`Execution failed for ${app.name}: ${msg}`);
-      return {
-        success: false,
-        message: `Failed to launch ${app.name}: ${msg}`,
-      };
+    // Desktop process spawning is strictly disabled. Kept as an architectural idea for future integration.
+    logger.info(`Desktop process spawning is disabled: ${app.name}`);
+    if (this.dbService) {
+      this.dbService.logAutomationAudit(action.id, 'launch_app', app.name, 'disabled');
     }
+
+    return {
+      success: false,
+      message: 'Desktop application automation is currently disabled.',
+    };
   }
 
   /**

@@ -87,6 +87,13 @@ export class IntentRouter {
             skill: 'control',
             extractParams: () => ({})
         },
+        // Desktop application automation block (strictly disabled)
+        {
+            pattern: /^(?:can you (?:please )?)?(?:open|launch|start|run) (?:the )?(?:calculator|calc|notepad|spotify|vscode|code|paint|terminal|cmd|powershell|browser|app|application|program)(?: .*)?$/i,
+            intent: 'app_launch_disabled',
+            skill: 'control',
+            extractParams: () => ({})
+        },
         // System status / How are you
         {
             pattern: /^(?:how are you(?: doing)?|how(?:'?s| is) it going|how are you today)$/i,
