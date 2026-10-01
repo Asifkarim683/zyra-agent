@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zyra Neural Core — Model Network Node Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #060913;
+      --bg-card: rgba(13, 20, 36, 0.75);
+      --bg-card-hover: rgba(20, 30, 54, 0.85);
+      --border-glow: rgba(56, 189, 248, 0.25);
+      --border-subtle: rgba(148, 163, 184, 0.12);
+      --accent-cyan: #00f2fe;
+      --accent-sky: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(0, 242, 254, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(192, 132, 252, 0.04) 0%, transparent 45%),
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-glow);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00f2fe 0%, #3b82f6 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.35);
+    }
+
+    .brand-title {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-tag {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(0, 242, 254, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      letter-spacing: 0.08em;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--accent-green);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-glow);
+      background: rgba(13, 20, 36, 0.8);
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 14px rgba(0, 242, 254, 0.2);
+    }
+
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Hardware HUD Grid */
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--border-glow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-value {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .card-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      margin-top: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+
+    /* Network Topology View */
+    .section-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .topology-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      position: relative;
+    }
+
+    .node-box {
+      background: rgba(10, 16, 32, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .node-box.active {
+      border-color: var(--accent-cyan);
+      background: rgba(0, 242, 254, 0.05);
+      box-shadow: 0 0 18px rgba(0, 242, 254, 0.15);
+    }
+
+    .node-step {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .node-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      line-height: 1.3;
+    }
+
+    .node-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-sky);
+      margin-top: auto;
+    }
+
+    /* Trace Inspector */
+    .trace-inspector {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .trace-prompt-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .waterfall-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .waterfall-item {
+      background: rgba(10, 16, 32, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.2s;
+    }
+
+    .waterfall-item:hover {
+      border-color: var(--border-glow);
+    }
+
+    .waterfall-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .waterfall-title {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .waterfall-stats {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--accent-cyan);
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+    }
+
+    .bar-chunk {
+      height: 100%;
+      background: linear-gradient(90deg, #00f2fe, #38bdf8);
+      border-radius: 3px;
+    }
+
+    .payload-json {
+      background: #030712;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #94a3b8;
+      overflow-x: auto;
+      max-height: 220px;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    /* History Table */
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      font-family: var(--font-mono);
+    }
+
+    .history-table th {
+      text-align: left;
+      padding: 10px 14px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+
+    .history-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #e2e8f0;
+    }
+
+    .history-table tr {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .history-table tr:hover {
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+    }
+
+    .pill-cyan { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.3); }
+    .pill-green { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .pill-purple { background: rgba(192, 132, 252, 0.1); color: var(--accent-purple); border: 1px solid rgba(192, 132, 252, 0.3); }
+    .pill-amber { background: rgba(245, 158, 11, 0.1); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 16px 32px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#060913" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">
+          ZYRA // NEURAL NODE MONITOR
+          <span class="brand-tag">DEDICATED TELEMETRY</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted);">Real-time execution graph & hardware cluster observer</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="live-badge" id="live-indicator">
+        <div class="live-dot"></div>
+        <span>POLLING (2s)</span>
+      </div>
+
+      <button class="btn" id="btn-toggle-poll" onclick="togglePolling()">
+        <span id="poll-btn-text">Pause Polling</span>
+      </button>
+
+      <button class="btn" onclick="fetchTelemetry(true)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>Refresh</span>
+      </button>
+
+      <a href="/" class="btn" style="text-decoration: none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Back to Chat</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Observability Dashboard -->
+  <main>
+    <!-- Hardware Node HUD Cards -->
+    <div class="hud-grid">
+      <!-- GPU Node -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+            GPU ACCELERATOR NODE
+          </div>
+          <span class="pill pill-green" id="gpu-status">ONLINE</span>
+        </div>
+        <div class="card-value">
+          <span id="gpu-vram-used">0</span>
+          <span style="font-size: 14px; color: var(--text-muted);">/ <span id="gpu-vram-total">4096</span> MB</span>
+          <span style="font-size: 14px; margin-left: auto; color: var(--accent-cyan);" id="gpu-vram-pct">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="gpu-vram-bar" style="width: 0%; background: var(--accent-green);"></div>
+        </div>
+        <div class="card-subtext" id="gpu-details">
+          NVIDIA GeForce RTX 3050 Laptop GPU • Temp: --°C
+        </div>
+      </div>
+
+      <!-- CPU & RAM Node -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            HOST COMPUTE & RAM
+          </div>
+          <span class="pill pill-cyan" id="host-platform">WIN32</span>
+        </div>
+        <div class="card-value">
+          <span id="ram-used">0</span>
+          <span style="font-size: 14px; color: var(--text-muted);">/ <span id="ram-total">16384</span> MB</span>
+          <span style="font-size: 14px; margin-left: auto; color: var(--accent-sky);" id="ram-pct">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="ram-bar" style="width: 0%; background: var(--accent-sky);"></div>
+        </div>
+        <div class="card-subtext" id="cpu-details">
+          Intel Core i5-12450H (12 Cores)
+        </div>
+      </div>
+
+      <!-- LLM Engine Node -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24"/></svg>
+            LOCAL LLM REASONING CORE
+          </div>
+          <span class="pill pill-purple" id="llm-model-name">LLAMA 3.2:3B</span>
+        </div>
+        <div class="card-value">
+          <span id="llm-provider">LOCAL (OLLAMA)</span>
+        </div>
+        <div class="card-subtext" style="margin-top: 14px; line-height: 1.6;" id="llm-meta">
+          Context Window: 4096 tokens • Endpoint: http://localhost:11434<br>
+          Autonomous Function Calling: Enabled
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Execution Pipeline Graph -->
+    <div class="card">
+      <div class="section-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        MODEL NETWORK PIPELINE ARCHITECTURE (7 NODES)
+      </div>
+
+      <div class="topology-container" id="topology-grid">
+        <!-- Node 1 -->
+        <div class="node-box" id="node-box-ingest">
+          <span class="node-step">STAGE 01</span>
+          <span class="node-name">Input & Safety Ingestion</span>
+          <span class="node-meta" id="topo-ingest-ms">-- ms</span>
+        </div>
+        <!-- Node 2 -->
+        <div class="node-box" id="node-box-context">
+          <span class="node-step">STAGE 02</span>
+          <span class="node-name">Context & SQLite Memory</span>
+          <span class="node-meta" id="topo-context-ms">-- ms</span>
+        </div>
+        <!-- Node 3 -->
+        <div class="node-box" id="node-box-router">
+          <span class="node-step">STAGE 03</span>
+          <span class="node-name">Fast-Path Intent Router</span>
+          <span class="node-meta" id="topo-router-ms">-- ms</span>
+        </div>
+        <!-- Node 4 -->
+        <div class="node-box" id="node-box-reasoning">
+          <span class="node-step">STAGE 04</span>
+          <span class="node-name">LLM Planner & Reasoning</span>
+          <span class="node-meta" id="topo-reasoning-ms">-- ms</span>
+        </div>
+        <!-- Node 5 -->
+        <div class="node-box" id="node-box-tool">
+          <span class="node-step">STAGE 05</span>
+          <span class="node-name">Autonomous Tool Execution</span>
+          <span class="node-meta" id="topo-tool-ms">-- ms</span>
+        </div>
+        <!-- Node 6 -->
+        <div class="node-box" id="node-box-synthesis">
+          <span class="node-step">STAGE 06</span>
+          <span class="node-name">Ground-Truth Synthesis</span>
+          <span class="node-meta" id="topo-synthesis-ms">-- ms</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active / Last Trace Breakdown -->
+    <div class="card trace-inspector">
+      <div class="card-header">
+        <div class="section-title" style="margin-bottom: 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          ACTIVE EXECUTION TRACE BREAKDOWN
+        </div>
+        <div style="display: flex; gap: 8px;" id="trace-meta-pills">
+          <span class="pill pill-cyan" id="trace-latency-pill">Latency: -- ms</span>
+          <span class="pill pill-purple" id="trace-speed-pill">Speed: -- tok/s</span>
+        </div>
+      </div>
+
+      <div class="trace-prompt-box">
+        <div>
+          <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); display: block; margin-bottom: 4px;">USER PROMPT</span>
+          <strong id="trace-prompt-text" style="color: #ffffff; font-size: 14px;">No trace recorded yet. Send a message in Zyra Chat.</strong>
+        </div>
+        <span class="pill pill-amber" id="trace-timestamp" style="font-family: var(--font-mono);">--:--:--</span>
+      </div>
+
+      <div class="waterfall-list" id="waterfall-container">
+        <div style="color: var(--text-muted); font-size: 13px; padding: 12px; text-align: center;">
+          Awaiting query execution...
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Traces Ring Buffer Table -->
+    <div class="card">
+      <div class="section-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        RECENT TRACES RING BUFFER (LAST 10)
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>TRACE ID</th>
+              <th>TIMESTAMP</th>
+              <th>USER PROMPT</th>
+              <th>NODES</th>
+              <th>DURATION</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted);">Loading traces...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <span>Zyra Autonomous Agent Engine v1.0.0</span>
+    <span>Connected: <strong style="color: var(--accent-cyan);" id="server-status">http://localhost:3000</strong></span>
+  </footer>
+
+  <script>
+    let isPolling = true;
+    let pollTimer = null;
+    let cachedTraces = [];
+
+    async function fetchTelemetry(isManual = false) {
+      try {
+        const res = await fetch('/api/v1/telemetry/nodes');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderDashboard(data);
+      } catch (err) {
+        console.warn('Telemetry fetch error:', err);
+        document.getElementById('server-status').textContent = 'DISCONNECTED';
+        document.getElementById('server-status').style.color = '#ef4444';
+      }
+    }
+
+    function renderDashboard(data) {
+      document.getElementById('server-status').textContent = 'ONLINE (OK)';
+      document.getElementById('server-status').style.color = '#10b981';
+
+      // 1. Hardware Stats
+      const hw = data.hardware;
+      if (hw) {
+        document.getElementById('gpu-vram-used').textContent = hw.gpuVramUsedMB;
+        document.getElementById('gpu-vram-total').textContent = hw.gpuVramTotalMB;
+        document.getElementById('gpu-vram-pct').textContent = `${hw.gpuVramPercent}%`;
+        
+        const vramBar = document.getElementById('gpu-vram-bar');
+        vramBar.style.width = `${hw.gpuVramPercent}%`;
+        vramBar.style.background = hw.gpuVramPercent > 85 ? 'var(--accent-red)' : hw.gpuVramPercent > 70 ? 'var(--accent-amber)' : 'var(--accent-green)';
+
+        document.getElementById('gpu-details').textContent = `${hw.gpuName} • Temp: ${hw.gpuTemperatureC}°C • GPU Util: ${hw.gpuUtilizationPercent}%`;
+
+        document.getElementById('ram-used').textContent = hw.systemMemoryUsedMB;
+        document.getElementById('ram-total').textContent = hw.systemMemoryTotalMB;
+        document.getElementById('ram-pct').textContent = `${hw.systemMemoryPercent}%`;
+        document.getElementById('ram-bar').style.width = `${hw.systemMemoryPercent}%`;
+        document.getElementById('cpu-details').textContent = `${hw.cpuModel} (${hw.cpuCores} Cores)`;
+        document.getElementById('host-platform').textContent = hw.platform.toUpperCase();
+      }
+
+      // 2. Model Specs
+      const model = data.model;
+      if (model) {
+        document.getElementById('llm-model-name').textContent = (model.model || 'LLAMA 3.2').toUpperCase();
+        document.getElementById('llm-provider').textContent = `${(model.provider || 'LOCAL').toUpperCase()} (${model.status.toUpperCase()})`;
+        document.getElementById('llm-meta').innerHTML = `Context Window: ${model.contextWindow} tokens • Endpoint: ${model.baseUrl}<br>Autonomous Function Calling: Active`;
+      }
+
+      // 3. Recent Traces
+      if (data.recentTraces && data.recentTraces.length > 0) {
+        cachedTraces = data.recentTraces;
+        renderTracesTable(data.recentTraces);
+        // Render the latest trace in the inspector
+        renderActiveTrace(data.recentTraces[data.recentTraces.length - 1]);
+      }
+    }
+
+    function renderActiveTrace(trace) {
+      if (!trace) return;
+
+      document.getElementById('trace-prompt-text').textContent = trace.prompt || '(Empty Prompt)';
+      document.getElementById('trace-timestamp').textContent = new Date(trace.timestamp).toLocaleTimeString();
+      document.getElementById('trace-latency-pill').textContent = `Total: ${Math.round(trace.totalDurationMs)} ms`;
+
+      // Find token speed if available in reasoning or synthesis
+      let tokSpeed = null;
+      for (const n of trace.nodes) {
+        if (n.details?.metrics?.tokensPerSecond) {
+          tokSpeed = n.details.metrics.tokensPerSecond;
+        }
+      }
+      document.getElementById('trace-speed-pill').textContent = tokSpeed ? `Speed: ${tokSpeed} tok/s` : `Speed: Direct`;
+
+      // Update topology nodes
+      const nodeTypesSeen = new Set(trace.nodes.map(n => n.type));
+      document.getElementById('node-box-ingest').classList.toggle('active', nodeTypesSeen.has('ingestion'));
+      document.getElementById('node-box-context').classList.toggle('active', nodeTypesSeen.has('memory'));
+      document.getElementById('node-box-router').classList.toggle('active', nodeTypesSeen.has('router'));
+      document.getElementById('node-box-reasoning').classList.toggle('active', nodeTypesSeen.has('reasoning'));
+      document.getElementById('node-box-tool').classList.toggle('active', nodeTypesSeen.has('tool'));
+      document.getElementById('node-box-synthesis').classList.toggle('active', nodeTypesSeen.has('synthesis'));
+
+      // Render Waterfall bars
+      const waterfallContainer = document.getElementById('waterfall-container');
+      waterfallContainer.innerHTML = '';
+
+      trace.nodes.forEach((node, idx) => {
+        const pct = Math.max(3, Math.min(100, (node.durationMs / (trace.totalDurationMs || 1)) * 100));
+
+        const item = document.createElement('div');
+        item.className = 'waterfall-item';
+
+        const hasPayload = (node.input && Object.keys(node.input).length > 0) || (node.output && Object.keys(node.output).length > 0) || node.details;
+        const payloadJson = JSON.stringify({ input: node.input, output: node.output, details: node.details }, null, 2);
+
+        item.innerHTML = `
+          <div class="waterfall-header" onclick="togglePayload('payload-${idx}')">
+            <div class="waterfall-title">
+              <span class="pill pill-${getNodePillClass(node.type)}">${node.type.toUpperCase()}</span>
+              <span>${node.name}</span>
+            </div>
+            <div class="waterfall-stats">
+              ${node.durationMs.toFixed(2)} ms (${Math.round(pct)}%)
+              ${hasPayload ? '<span style="font-size: 10px; color: var(--text-muted); margin-left: 6px;">[JSON ▾]</span>' : ''}
+            </div>
+          </div>
+          <div class="bar-track">
+            <div class="bar-chunk" style="width: ${pct}%;"></div>
+          </div>
+          ${hasPayload ? `<pre class="payload-json" id="payload-${idx}">${escapeHtml(payloadJson)}</pre>` : ''}
+        `;
+        waterfallContainer.appendChild(item);
+      });
+    }
+
+    function getNodePillClass(type) {
+      switch(type) {
+        case 'ingestion': return 'cyan';
+        case 'memory': return 'green';
+        case 'router': return 'amber';
+        case 'reasoning': return 'purple';
+        case 'tool': return 'cyan';
+        case 'synthesis': return 'green';
+        default: return 'cyan';
+      }
+    }
+
+    function togglePayload(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = el.style.display === 'block' ? 'none' : 'block';
+      }
+    }
+
+    function renderTracesTable(traces) {
+      const tbody = document.getElementById('history-table-body');
+      tbody.innerHTML = '';
+
+      // Most recent first
+      const reversed = [...traces].reverse();
+
+      reversed.forEach((t) => {
+        const tr = document.createElement('tr');
+        tr.onclick = () => renderActiveTrace(t);
+        tr.innerHTML = `
+          <td style="color: var(--accent-cyan); font-weight: 600;">${t.traceId}</td>
+          <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
+          <td style="max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.prompt)}</td>
+          <td><span class="pill pill-cyan">${t.nodes.length} nodes</span></td>
+          <td style="color: var(--accent-sky);">${Math.round(t.totalDurationMs)} ms</td>
+          <td><span class="pill pill-green">DONE</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function togglePolling() {
+      isPolling = !isPolling;
+      const ind = document.getElementById('live-indicator');
+      const btnText = document.getElementById('poll-btn-text');
+
+      if (isPolling) {
+        ind.style.display = 'flex';
+        btnText.textContent = 'Pause Polling';
+        startPolling();
+      } else {
+        ind.style.display = 'none';
+        btnText.textContent = 'Resume Polling';
+        clearInterval(pollTimer);
+      }
+    }
+
+    function startPolling() {
+      clearInterval(pollTimer);
+      pollTimer = setInterval(fetchTelemetry, 2000);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Initial Load & Start Polling
+    fetchTelemetry();
+    startPolling();
+  </script>
+</body>
+</html>

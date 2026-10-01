@@ -1,5 +1,4 @@
-import React from 'react';
-import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Database, Plus } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Database, Plus, Activity } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
@@ -218,6 +217,43 @@ export const Header: React.FC<HeaderProps> = ({
           <PlayCircle size={13} color="#f59e0b" />
           <span>ROUTINES</span>
         </button>
+
+        {/* External Model Node Monitor Link */}
+        <a
+          href="/monitor"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '6px 11px',
+            borderRadius: '8px',
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            color: '#38bdf8',
+            fontSize: '11px',
+            fontWeight: 600,
+            fontFamily: 'var(--font-mono)',
+            textDecoration: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(56, 189, 248, 0.18)';
+            e.currentTarget.style.borderColor = '#38bdf8';
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(56, 189, 248, 0.25)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(56, 189, 248, 0.08)';
+            e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+          title="Open Model Node Network Monitor in a new tab"
+        >
+          <Activity size={13} color="#38bdf8" />
+          <span>MONITOR ↗</span>
+        </a>
 
         {/* Voice Audio Mute / Unmute Toggle */}
         <button
