@@ -43,6 +43,11 @@ voiceRouter.get('/tts', async (req, res, next) => {
       rate || voiceService.defaultRate
     );
 
+    if (audioBuffer.length === 0) {
+      res.status(204).end();
+      return;
+    }
+
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', audioBuffer.length);
     res.setHeader('Cache-Control', 'no-cache');

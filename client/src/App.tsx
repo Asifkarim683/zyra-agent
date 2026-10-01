@@ -6,6 +6,36 @@ import { MemoryModal } from './components/MemoryModal';
 import { useVoice } from './hooks/useVoice';
 import type { ChatMessage, SystemHealth, RoutineItem } from './types';
 
+function extractSpeechChunk(buffer: string, isFinal = false): { chunk: string; rest: string } | null {
+  if (isFinal) {
+    const trimmed = buffer.trim();
+    return trimmed ? { chunk: trimmed, rest: '' } : null;
+  }
+
+  // Look for punctuation (. ! ?) followed by whitespace or double newlines
+  const re = /([.!?]+|\n{2,})(?=\s+[A-Z0-9"']|\s*$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(buffer)) !== null) {
+    const endIndex = match.index + match[1].length;
+    const candidate = buffer.slice(0, endIndex).trim();
+
+    // Check if candidate ends with an abbreviation or digit like '1.', 'e.g.', 'Dr.'
+    if (/\b(?:[A-Z]|[A-Za-z]{1,3}\.[A-Za-z]{1,3}|[Dd]r|[Mm]r|[Mm]rs|[Mm]s|[Pp]rof|[Ss]r|[Jj]r|[Vv]s|[Ee]tc|[Ee]\.g|[Ii]\.e|\d+)\.$/i.test(candidate)) {
+      continue; // Skip abbreviation or list number
+    }
+
+    // Ensure chunk has enough content to avoid micro-stutter (at least 20 chars or 4 words)
+    const words = candidate.split(/\s+/).filter(Boolean);
+    if (words.length < 4 && candidate.length < 20) {
+      continue; // Keep accumulating to prevent buffer underrun
+    }
+
+    const rest = buffer.slice(endIndex).trimStart();
+    return { chunk: candidate, rest };
+  }
+  return null;
+}
+
 export function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +93,6 @@ export function App() {
 
       let streamedText = '';
       let sentenceBuffer = '';
-      let isFirstSpeechChunk = true;
 
       try {
         const res = await fetch('/api/v1/chat/stream', {
@@ -115,34 +144,14 @@ export function App() {
                 streamedText += data.token;
                 sentenceBuffer += data.token;
 
-                if (isFirstSpeechChunk) {
-                  // For the very first chunk, trigger early on clause boundary (, ; : - \n) or after 5-6 words
-                  // so the user hears voice output within ~200-300ms without waiting for a full 30-word sentence!
-                  const clauseMatch = sentenceBuffer.match(/^(.*?[,;:—\n])\s*(.*)$/s);
-                  const words = sentenceBuffer.trim().split(/\s+/).filter(Boolean);
-
-                  if (clauseMatch && clauseMatch[1].trim().length >= 8) {
-                    const toSpeak = clauseMatch[1].trim();
-                    sentenceBuffer = clauseMatch[2];
-                    if (toSpeak) {
-                      voice.queueSentence(toSpeak);
-                      isFirstSpeechChunk = false;
-                    }
-                  } else if (words.length >= 6) {
-                    const toSpeak = words.slice(0, 5).join(' ');
-                    sentenceBuffer = words.slice(5).join(' ');
+                // Queue speech only on complete grammatical sentence boundaries
+                // avoiding abbreviations, numbers, and micro-fragments to eliminate stuttering
+                let nextChunk: { chunk: string; rest: string } | null;
+                while ((nextChunk = extractSpeechChunk(sentenceBuffer))) {
+                  const toSpeak = nextChunk.chunk;
+                  sentenceBuffer = nextChunk.rest;
+                  if (toSpeak) {
                     voice.queueSentence(toSpeak);
-                    isFirstSpeechChunk = false;
-                  }
-                } else {
-                  // For subsequent chunks, split on complete sentence boundary [.!?\n]
-                  const sentenceEnd = sentenceBuffer.match(/^(.*?[.!?\n])\s*(.*)$/s);
-                  if (sentenceEnd) {
-                    const toSpeak = sentenceEnd[1].trim();
-                    sentenceBuffer = sentenceEnd[2];
-                    if (toSpeak) {
-                      voice.queueSentence(toSpeak);
-                    }
                   }
                 }
 
@@ -162,9 +171,10 @@ export function App() {
                   )
                 );
               } else if (event === 'done') {
-                // Speak any remaining sentence buffer
-                if (sentenceBuffer.trim()) {
-                  voice.queueSentence(sentenceBuffer.trim());
+                // Speak any remaining sentence buffer cleanly
+                const finalChunk = extractSpeechChunk(sentenceBuffer, true);
+                if (finalChunk && finalChunk.chunk) {
+                  voice.queueSentence(finalChunk.chunk);
                   sentenceBuffer = '';
                 }
 

@@ -17,20 +17,21 @@ interface SpeechQueueItem {
 const fetchAudioBlob = async (text: string, retries = 2): Promise<string | null> => {
   for (let attempt = 1; attempt <= retries; attempt++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 11000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
       const url = `/api/v1/voice/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(ZYRA_VOICE_ID)}&rate=%2B14%25`;
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
         const blob = await res.blob();
+        if (blob.size === 0) return null;
         return URL.createObjectURL(blob);
       }
     } catch {
       clearTimeout(timeoutId);
     }
     if (attempt < retries) {
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 300));
     }
   }
   return null;
@@ -47,9 +48,15 @@ export function useVoice(onSpeechResult: (text: string) => void) {
   const activeBlobUrlRef = useRef<string | null>(null);
   const speechQueueRef = useRef<SpeechQueueItem[]>([]);
   const isSpeakingRef = useRef(false);
+  const playbackWatchdogRef = useRef<NodeJS.Timeout | null>(null);
 
   // Stop any playing speech immediately (barge-in)
   const stopSpeaking = useCallback(() => {
+    if (playbackWatchdogRef.current) {
+      clearTimeout(playbackWatchdogRef.current);
+      playbackWatchdogRef.current = null;
+    }
+
     speechQueueRef.current.forEach((item) => {
       item.blobPromise.then((url) => {
         if (url) URL.revokeObjectURL(url);
@@ -64,6 +71,10 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     }
 
     if (audioRef.current) {
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current.ontimeupdate = null;
+      audioRef.current.onloadedmetadata = null;
       audioRef.current.pause();
       audioRef.current.src = '';
       audioRef.current = null;
@@ -204,42 +215,73 @@ export function useVoice(onSpeechResult: (text: string) => void) {
     }
 
     const finishAndAdvance = () => {
+      if (playbackWatchdogRef.current) {
+        clearTimeout(playbackWatchdogRef.current);
+        playbackWatchdogRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
+        audioRef.current.ontimeupdate = null;
+        audioRef.current.onloadedmetadata = null;
+        audioRef.current = null;
+      }
       if (activeBlobUrlRef.current) {
         URL.revokeObjectURL(activeBlobUrlRef.current);
         activeBlobUrlRef.current = null;
       }
-      audioRef.current = null;
       isSpeakingRef.current = false;
       playNextInQueue();
     };
 
     if (blobUrl) {
+      let hasAdvanced = false;
+      const advanceOnce = () => {
+        if (hasAdvanced) return;
+        hasAdvanced = true;
+        finishAndAdvance();
+      };
+
       const audio = new Audio(blobUrl);
       audioRef.current = audio;
       activeBlobUrlRef.current = blobUrl;
 
-      audio.onended = finishAndAdvance;
+      audio.onended = advanceOnce;
+      audio.onerror = advanceOnce;
 
-      audio.onerror = () => {
-        if (activeBlobUrlRef.current) {
-          URL.revokeObjectURL(activeBlobUrlRef.current);
-          activeBlobUrlRef.current = null;
+      // Watchdog 1: When audio metadata loads, calculate exact duration and set safety timer
+      audio.onloadedmetadata = () => {
+        const dur = audio.duration;
+        if (dur && Number.isFinite(dur) && dur > 0) {
+          if (playbackWatchdogRef.current) {
+            clearTimeout(playbackWatchdogRef.current);
+          }
+          playbackWatchdogRef.current = setTimeout(advanceOnce, Math.ceil(dur * 1000) + 1200);
         }
-        audioRef.current = null;
-        // Cleanly advance to the next sentence; never abruptly switch to a different voice mid-conversation
-        finishAndAdvance();
       };
 
-      audio.play().catch(() => {
-        if (activeBlobUrlRef.current) {
-          URL.revokeObjectURL(activeBlobUrlRef.current);
-          activeBlobUrlRef.current = null;
+      // Watchdog 2: Time update monitor to catch Chromium silent stall at end of blob
+      audio.ontimeupdate = () => {
+        if (audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
+          if (audio.currentTime >= audio.duration - 0.08) {
+            setTimeout(() => {
+              if (!hasAdvanced && audioRef.current === audio) {
+                advanceOnce();
+              }
+            }, 200);
+          }
         }
-        audioRef.current = null;
-        finishAndAdvance();
+      };
+
+      // Watchdog 3: Hard ceiling of 18s in case metadata never loads or audio fails to start
+      playbackWatchdogRef.current = setTimeout(advanceOnce, 18000);
+
+      audio.play().catch((err) => {
+        console.warn('Audio playback error:', err);
+        advanceOnce();
       });
     } else {
-      // If neural audio was unavailable for this chunk, cleanly advance rather than jumping to a jarring robotic voice
+      // If neural audio was unavailable for this chunk, cleanly advance
       finishAndAdvance();
     }
   }, []);
@@ -253,6 +295,10 @@ export function useVoice(onSpeechResult: (text: string) => void) {
         .replace(/[*#_~>]/g, '')
         .trim();
       if (!cleaned) return;
+
+      // Verify that the sentence contains spoken alphanumeric content
+      const hasSpokenContent = /[a-zA-Z0-9]/.test(cleaned.replace(/^[-*•\d.\s]+/, ''));
+      if (!hasSpokenContent) return;
 
       const item: SpeechQueueItem = {
         id: crypto.randomUUID(),

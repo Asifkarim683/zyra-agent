@@ -9,7 +9,30 @@ export class VoiceService {
   public readonly defaultRate = DEFAULT_SPEECH_RATE;
   private audioCache = new Map<string, Buffer>();
   private maxCacheEntries = 200;
-  private synthesisLock: Promise<any> = Promise.resolve();
+  private activeSyntheses = 0;
+  private maxConcurrentSyntheses = 3;
+  private slotQueue: Array<() => void> = [];
+
+  private async acquireSlot(): Promise<void> {
+    if (this.activeSyntheses < this.maxConcurrentSyntheses) {
+      this.activeSyntheses++;
+      return;
+    }
+    return new Promise((resolve) => {
+      this.slotQueue.push(() => {
+        this.activeSyntheses++;
+        resolve();
+      });
+    });
+  }
+
+  private releaseSlot(): void {
+    this.activeSyntheses--;
+    if (this.slotQueue.length > 0) {
+      const next = this.slotQueue.shift();
+      if (next) next();
+    }
+  }
 
   /**
    * Prepares and cleans text for natural, fluid human speech.
@@ -71,7 +94,7 @@ export class VoiceService {
   ): Promise<Buffer> {
     const speechText = this.cleanForSpeech(text);
     if (!speechText) {
-      throw new Error('Empty text after speech sanitization');
+      return Buffer.alloc(0);
     }
 
     // 1. Check in-memory audio cache for zero-latency playback (instant, lock-free)
@@ -82,10 +105,10 @@ export class VoiceService {
       return cached;
     }
 
-    // 2. Queue and serialize WebSocket syntheses through synthesisLock
-    // This prevents concurrent WebSocket collisions with Microsoft's servers, eliminating 500 errors and voice drops.
-    const executeSynthesis = async (): Promise<Buffer> => {
-      // Re-check cache in case an earlier queued request synthesized identical text
+    // 2. Concurrency-managed synthesis pool (allows up to 3 parallel requests)
+    // Prefetches sentences in parallel so consecutive speech plays without buffer underruns
+    await this.acquireSlot();
+    try {
       const cachedAgain = this.audioCache.get(cacheKey);
       if (cachedAgain) return cachedAgain;
 
@@ -104,9 +127,9 @@ export class VoiceService {
             return tts.toBuffer();
           })();
 
-          // 10-second timeout guard per attempt
+          // 15-second timeout guard per attempt
           const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('EdgeTTS synthesis timed out after 10000ms')), 10000)
+            setTimeout(() => reject(new Error('EdgeTTS synthesis timed out after 15000ms')), 15000)
           );
 
           const buffer = await Promise.race([synthPromise, timeoutPromise]);
@@ -132,11 +155,9 @@ export class VoiceService {
       const finalMsg = lastError instanceof Error ? lastError.message : String(lastError);
       logger.error('Voice synthesis failed after retries:', { error: finalMsg });
       throw new Error(`TTS synthesis error: ${finalMsg}`);
-    };
-
-    const task = this.synthesisLock.then(executeSynthesis, executeSynthesis);
-    this.synthesisLock = task.then(() => {}, () => {});
-    return task;
+    } finally {
+      this.releaseSlot();
+    }
   }
 
   /**
