@@ -1,5 +1,6 @@
 import type { DatabaseService } from '../services/database.js';
 import type { WebService } from '../services/web-service.js';
+import type { RAGService } from '../services/rag-service.js';
 import type { SkillRegistry } from './skill-registry.js';
 import { logger } from '../config/logger.js';
 import { config } from '../config/index.js';
@@ -49,11 +50,39 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'search_web',
-      description: 'Search the live internet ONLY when specifically asked to search online or for breaking recent 2024-2026 news. Never use for general knowledge, science, history, facts, or definitions.',
+      description: 'Search the live internet for recent news, real-time facts, current prices, or live web information.',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'The search query' },
+          query: { type: 'string', description: 'The search query to lookup on the web' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_webpage',
+      description: 'Fetch and extract the readable text content of any safe web page URL (e.g. https://...) to summarize or analyze it.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'The web page URL to read' },
+        },
+        required: ['url'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_knowledge_base',
+      description: 'Search long-term memory, saved documents, project notes, and knowledge base for relevant facts, project context, or past information.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The search query or concept to look up in the knowledge base' },
         },
         required: ['query'],
       },
@@ -113,8 +142,14 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
 export function getToolsForPrompt(prompt: string): ToolDefinition[] {
   const p = prompt.toLowerCase();
 
-  // Explicit internet / search requests
-  const isSearchRequested = /\b(search\s+(?:the\s+web|online|internet|google)|search\s+for|look\s*up\s+online|browse\s+the\s+web|latest\s+news|breaking\s+news|recent\s+headlines?|today's\s+news|current\s+events)\b/i.test(p);
+  // Explicit internet / search requests & live real-time queries
+  const isSearchRequested = /\b(search\s+(?:the\s+web|online|internet|google)|search\s+for|look\s*up\s+online|browse\s+the\s+web|latest\s+news|breaking\s+news|recent\s+headlines?|today's\s+news|current\s+events|who\s+won|stock\s+price|bitcoin|crypto|current\s+prime\s+minister|current\s+president|what\s+happened\s+today|news\s+about|news\s+on)\b/i.test(p);
+
+  // Direct webpage URL extraction
+  const hasUrl = /https?:\/\/[^\s<>"'{}|\^\[\]`]+/i.test(prompt);
+
+  // Knowledge base and document Q&A requests
+  const isKnowledgeRequested = /\b(document|documents|notes?|knowledge\s*base|pdf|uploaded|project\s+doc|spec|specification|manual|read\s+my\s+note|in\s+my\s+doc|look\s+up\s+in\s+docs)\b/i.test(p);
 
   // Real-time weather requests
   const isWeatherRequested = /\b(weather|temperature|forecast|degrees|raining|snowing|humid|sunny|windy|rain|snow)\b/i.test(p);
@@ -145,6 +180,14 @@ export function getToolsForPrompt(prompt: string): ToolDefinition[] {
     const t = TOOL_SCHEMAS.find((s) => s.function.name === 'search_web');
     if (t) matched.push(t);
   }
+  if (hasUrl) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'read_webpage');
+    if (t) matched.push(t);
+  }
+  if (isKnowledgeRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'search_knowledge_base');
+    if (t) matched.push(t);
+  }
   if (isTimerRequested) {
     const t = TOOL_SCHEMAS.find((s) => s.function.name === 'manage_timer');
     if (t) matched.push(t);
@@ -165,6 +208,7 @@ export interface ToolExecutionContext {
   registry: SkillRegistry;
   dbService?: DatabaseService;
   webService?: WebService;
+  ragService?: RAGService;
   conversationId: string;
 }
 
@@ -213,19 +257,63 @@ export async function executeTool(
       case 'search_web': {
         const query = String(args.query || '').trim();
         if (ctx.webService) {
-          const results = await ctx.webService.search(query, 3);
+          const results = await ctx.webService.search(query, 4);
           if (results.length > 0) {
-            const summary = results.map((r, i) => `[${i + 1}] ${r.title}: ${r.snippet}`).join('\n');
-            return { result: summary, data: results };
+            const summary = results.map((r, i) => `[${i + 1}] ${r.title} (${r.domain || r.url})\n${r.snippet}`).join('\n\n');
+            return { result: summary, data: { sources: results } };
           }
           return { result: `No recent search results found for "${query}".` };
         }
         return { result: 'Web search service unavailable.' };
       }
 
+      case 'read_webpage': {
+        const url = String(args.url || '').trim();
+        if (ctx.webService) {
+          try {
+            const page = await ctx.webService.extractUrl(url);
+            let domain = '';
+            try {
+              domain = new URL(page.url).hostname.replace(/^www\./, '');
+            } catch {
+              domain = '';
+            }
+            return {
+              result: `Title: ${page.title}\nURL: ${page.url}\n\nContent:\n${page.content.slice(0, 3000)}`,
+              data: {
+                sources: [{ title: page.title, url: page.url, snippet: page.content.slice(0, 200), domain }],
+              },
+            };
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return { result: `Failed to read webpage: ${msg}` };
+          }
+        }
+        return { result: 'Web service unavailable.' };
+      }
+
+      case 'search_knowledge_base': {
+        const query = String(args.query || '').trim();
+        if (ctx.ragService) {
+          try {
+            const chunks = await ctx.ragService.searchKnowledgeBase(query, 3, 0.42);
+            if (chunks.length > 0) {
+              const summary = chunks.map((c, i) => `[Document Excerpt ${i + 1} from "${c.title}"]\n${c.content}`).join('\n\n');
+              return { result: summary, data: { knowledge: chunks } };
+            }
+            return { result: `No matching documents found in knowledge base for "${query}".` };
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return { result: `Error searching knowledge base: ${msg}` };
+          }
+        }
+        return { result: 'Knowledge base service unavailable.' };
+      }
+
       case 'manage_memory': {
         const fact = String(args.fact || '').trim();
         const memorySkill = ctx.registry.get('memory');
+        let response = `Saved memory: "${fact}".`;
         if (memorySkill) {
           const res = await memorySkill.execute({
             intent: { intent: 'remember_fact', skill: 'memory', confidence: 1, raw: `remember that ${fact}`, parameters: { fact } },
@@ -233,9 +321,14 @@ export async function executeTool(
             conversationId: ctx.conversationId,
             history: [],
           });
-          return { result: res.response };
+          response = res.response;
         }
-        return { result: `Saved memory: "${fact}".` };
+        if (ctx.ragService) {
+          ctx.ragService.saveSemanticMemory('user_fact', fact).catch((err) => {
+            logger.warn(`Failed to save semantic memory embedding: ${err}`);
+          });
+        }
+        return { result: response };
       }
 
       case 'manage_timer': {

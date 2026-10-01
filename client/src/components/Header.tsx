@@ -1,4 +1,4 @@
-import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Database, Plus, Activity } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Database, Plus, Activity, BookOpen } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   onToggleTts: () => void;
   onOpenRoutines: () => void;
   onOpenMemory?: () => void;
+  onOpenKnowledge?: () => void;
   onNewChat?: () => void;
 }
 
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTts,
   onOpenRoutines,
   onOpenMemory,
+  onOpenKnowledge,
   onNewChat,
 }) => {
   return (
@@ -134,6 +136,43 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Database size={12} color="#10b981" />
           <span>MEMORY: <strong style={{ color: '#10b981' }}>SQLITE</strong></span>
+        </button>
+
+        {/* Local Knowledge Base / RAG Button */}
+        <button
+          onClick={onOpenKnowledge}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 10px',
+            borderRadius: '8px',
+            background: 'rgba(10, 18, 36, 0.6)',
+            border: '1px solid var(--border-subtle)',
+            fontSize: '11px',
+            color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-mono)',
+            cursor: onOpenKnowledge ? 'pointer' : 'default',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            if (onOpenKnowledge) {
+              e.currentTarget.style.borderColor = '#38bdf8';
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(56, 189, 248, 0.2)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (onOpenKnowledge) {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }
+          }}
+          title="Click to view indexed documents, add notes, and test semantic search"
+        >
+          <BookOpen size={12} color="#38bdf8" />
+          <span>KNOWLEDGE: <strong style={{ color: '#38bdf8' }}>RAG</strong></span>
         </button>
 
         {/* LLM Engine Badge */}

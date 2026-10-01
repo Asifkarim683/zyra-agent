@@ -7,6 +7,7 @@ export interface WebSearchResult {
   title: string;
   snippet: string;
   url: string;
+  domain?: string;
 }
 
 export interface ExtractedWebpage {
@@ -191,56 +192,71 @@ export class WebService {
     logger.info(`Performing live web search for: "${query}"`);
     const results: WebSearchResult[] = [];
 
-    // 1. Try DuckDuckGo HTML search
+    // 1. Try DuckDuckGo Lite search (fast, reliable, no redirects, clean titles & URLs)
     try {
-      const response = await fetch(
-        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-        {
-          headers: {
-            'User-Agent': this.userAgent,
-            Accept:
-              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-          },
-          signal: AbortSignal.timeout(6000),
-        }
-      );
+      const response = await fetch('https://lite.duckduckgo.com/lite/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': this.userAgent,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+        body: 'q=' + encodeURIComponent(query),
+        signal: AbortSignal.timeout(5000),
+      });
 
       if (response.ok) {
         const html = await response.text();
-
-        // Extract result blocks
-        // In DuckDuckGo HTML:
-        // Snippets: <a class="result__snippet" ...>...</a>
-        // Titles: <a class="result__url" ...> or <a class="result__snippet">
+        const linkMatches = [
+          ...html.matchAll(
+            /<a\s+[^>]*href=['"]([^'"]*)['"][^>]*class=['"]result-link['"][^>]*>([\s\S]*?)<\/a>/gi
+          ),
+        ];
         const snippetMatches = [
           ...html.matchAll(
-            /<a class="result__snippet"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi
+            /<td\s+[^>]*class=['"]result-snippet['"][^>]*>([\s\S]*?)<\/td>/gi
           ),
         ];
 
-        for (const match of snippetMatches.slice(0, maxResults)) {
-          let rawUrl = match[1] || '';
-          // Decode DuckDuckGo redirect link uddg=
+        for (let i = 0; i < Math.min(linkMatches.length, snippetMatches.length, maxResults); i++) {
+          let rawUrl = linkMatches[i][1] || '';
           const uddgMatch = rawUrl.match(/uddg=([^&]+)/);
           if (uddgMatch) {
             rawUrl = decodeURIComponent(uddgMatch[1]);
           }
-          const snippet = this.cleanHtml(match[2] || '');
+
+          // Filter out advertisement / sponsored links
+          if (
+            rawUrl.includes('duckduckgo.com/y.js') ||
+            rawUrl.includes('aclick') ||
+            rawUrl.includes('ad_domain')
+          ) {
+            continue;
+          }
+
+          const title = this.cleanHtml(linkMatches[i][2] || query);
+          const snippet = this.cleanHtml(snippetMatches[i][1] || '');
 
           if (snippet && snippet.length > 15) {
-            // Find nearby title if possible
+            let domain = '';
+            try {
+              domain = new URL(rawUrl).hostname.replace(/^www\./, '');
+            } catch {
+              domain = '';
+            }
+
             results.push({
-              title: query,
+              title,
               snippet,
               url: rawUrl.startsWith('//') ? `https:${rawUrl}` : rawUrl,
+              domain,
             });
           }
         }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      logger.warn(`DuckDuckGo HTML search failed or timed out: ${msg}`);
+      logger.warn(`DuckDuckGo Lite search failed or timed out: ${msg}`);
     }
 
     // 2. If results are still empty, try DuckDuckGo Instant Answer JSON API

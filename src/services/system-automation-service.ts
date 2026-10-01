@@ -359,7 +359,7 @@ export class SystemAutomationService {
     // Desktop process spawning is strictly disabled. Kept as an architectural idea for future integration.
     logger.info(`Desktop process spawning is disabled: ${app.name}`);
     if (this.dbService) {
-      this.dbService.logAutomationAudit(action.id, 'launch_app', app.name, 'disabled');
+      this.dbService.logAutomationAudit(action.id, 'launch_app', app.name, 'rejected');
     }
 
     return {

@@ -103,6 +103,26 @@ export class DatabaseService {
         status TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS documents (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        source TEXT NOT NULL,
+        content TEXT NOT NULL,
+        embedding BLOB NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source);
+
+      CREATE TABLE IF NOT EXISTS semantic_memories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT UNIQUE NOT NULL,
+        value TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        embedding BLOB NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
   }
 
@@ -411,6 +431,126 @@ export class DatabaseService {
       status: string;
       createdAt: string;
     }>;
+  }
+
+  // ==========================================
+  // DOCUMENTS & RAG KNOWLEDGE BASE
+  // ==========================================
+
+  public insertDocumentChunk(chunk: {
+    id: string;
+    title: string;
+    source: string;
+    content: string;
+    embedding: Buffer;
+  }): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO documents (id, title, source, content, embedding)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        content = excluded.content,
+        embedding = excluded.embedding
+    `);
+    stmt.run(chunk.id, chunk.title, chunk.source, chunk.content, chunk.embedding);
+  }
+
+  public getAllDocumentChunks(): Array<{
+    id: string;
+    title: string;
+    source: string;
+    content: string;
+    embedding: Buffer;
+    createdAt: string;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT id, title, source, content, embedding, created_at as createdAt
+      FROM documents
+      ORDER BY id ASC
+    `);
+    return stmt.all() as Array<{
+      id: string;
+      title: string;
+      source: string;
+      content: string;
+      embedding: Buffer;
+      createdAt: string;
+    }>;
+  }
+
+  public deleteDocumentBySource(source: string): number {
+    const stmt = this.db.prepare('DELETE FROM documents WHERE source = ?');
+    const info = stmt.run(source);
+    return info.changes;
+  }
+
+  public deleteDocumentChunk(id: string): number {
+    const stmt = this.db.prepare('DELETE FROM documents WHERE id = ?');
+    const info = stmt.run(id);
+    return info.changes;
+  }
+
+  public listDocuments(): Array<{
+    source: string;
+    title: string;
+    chunkCount: number;
+    createdAt: string;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT source, title, COUNT(*) as chunkCount, MIN(created_at) as createdAt
+      FROM documents
+      GROUP BY source
+      ORDER BY createdAt DESC
+    `);
+    return stmt.all() as Array<{
+      source: string;
+      title: string;
+      chunkCount: number;
+      createdAt: string;
+    }>;
+  }
+
+  // ==========================================
+  // SEMANTIC MEMORIES
+  // ==========================================
+
+  public saveSemanticMemory(key: string, value: string, category: string, embedding: Buffer): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO semantic_memories (key, value, category, embedding, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        category = excluded.category,
+        embedding = excluded.embedding,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run(key, value, category, embedding);
+  }
+
+  public getAllSemanticMemories(): Array<{
+    key: string;
+    value: string;
+    category: string;
+    embedding: Buffer;
+    updatedAt: string;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT key, value, category, embedding, updated_at as updatedAt
+      FROM semantic_memories
+      ORDER BY updated_at DESC
+    `);
+    return stmt.all() as Array<{
+      key: string;
+      value: string;
+      category: string;
+      embedding: Buffer;
+      updatedAt: string;
+    }>;
+  }
+
+  public deleteSemanticMemory(key: string): void {
+    const stmt = this.db.prepare('DELETE FROM semantic_memories WHERE key = ?');
+    stmt.run(key);
   }
 
   /**

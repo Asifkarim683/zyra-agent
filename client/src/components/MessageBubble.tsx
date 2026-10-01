@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play } from 'lucide-react';
-import type { ChatMessage } from '../types';
+import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play, Globe, ExternalLink, BookOpen, FileText } from 'lucide-react';
+import type { ChatMessage, WebSource, KnowledgeChunk } from '../types';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -181,6 +181,203 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                 boxShadow: '0 0 8px #00f2fe',
               }}
             />
+          )}
+
+          {/* Live Web Sources Citations */}
+          {!isUser && message.data?.sources && Array.isArray(message.data.sources) && message.data.sources.length > 0 && (
+            <div
+              style={{
+                marginTop: '14px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: 'rgba(56, 189, 248, 0.05)',
+                border: '1px solid rgba(56, 189, 248, 0.22)',
+                boxShadow: '0 0 16px rgba(56, 189, 248, 0.05)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginBottom: '10px',
+                  color: '#38bdf8',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  fontFamily: 'monospace',
+                }}
+              >
+                <Globe size={13} color="#38bdf8" />
+                <span>LIVE WEB SOURCES ({message.data.sources.length})</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {message.data.sources.map((src: WebSource, idx: number) => (
+                  <a
+                    key={idx}
+                    href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '3px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      border: '1px solid rgba(56, 189, 248, 0.18)',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+                      e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.18)';
+                      e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span
+                        style={{
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          color: '#e2e8f0',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {src.title || src.url}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                        {src.domain && (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontFamily: 'monospace',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.25)',
+                            }}
+                          >
+                            {src.domain}
+                          </span>
+                        )}
+                        <ExternalLink size={12} color="#38bdf8" />
+                      </div>
+                    </div>
+                    {src.snippet && (
+                      <div
+                        style={{
+                          fontSize: '11.5px',
+                          color: '#94a3b8',
+                          lineHeight: 1.45,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                        }}
+                      >
+                        {src.snippet}
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Knowledge Base Citations */}
+          {!isUser && message.data?.knowledge && Array.isArray(message.data.knowledge) && message.data.knowledge.length > 0 && (
+            <div
+              style={{
+                marginTop: '14px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: 'rgba(168, 85, 247, 0.05)',
+                border: '1px solid rgba(168, 85, 247, 0.22)',
+                boxShadow: '0 0 16px rgba(168, 85, 247, 0.05)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginBottom: '10px',
+                  color: '#c084fc',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  fontFamily: 'monospace',
+                }}
+              >
+                <BookOpen size={13} color="#c084fc" />
+                <span>KNOWLEDGE BASE CITATIONS ({message.data.knowledge.length})</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {message.data.knowledge.map((chunk: KnowledgeChunk, idx: number) => (
+                  <div
+                    key={chunk.id || idx}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      border: '1px solid rgba(168, 85, 247, 0.18)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FileText size={13} color="#c084fc" />
+                        <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#e2e8f0' }}>
+                          {chunk.title || chunk.source}
+                        </span>
+                      </div>
+                      {typeof chunk.score === 'number' && (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontFamily: 'monospace',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#34d399',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                          }}
+                        >
+                          {Math.round(chunk.score * 100)}% match
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '11.5px',
+                        color: '#94a3b8',
+                        lineHeight: 1.45,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                      }}
+                    >
+                      {chunk.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* System Automation Confirmation Card */}

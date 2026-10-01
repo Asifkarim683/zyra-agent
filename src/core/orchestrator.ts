@@ -5,6 +5,7 @@ import type { LLMService } from '../services/llm/llm-service.js';
 import { WebService } from '../services/web-service.js';
 import type { TelemetryService } from '../services/telemetry-service.js';
 import type { DatabaseService } from '../services/database.js';
+import type { RAGService } from '../services/rag-service.js';
 import { PipelineTracer, type PipelineTrace } from './pipeline-tracer.js';
 import { TOOL_SCHEMAS, executeTool, getToolsForPrompt } from './tools.js';
 import type { SkillResult, SkillContext, IntentMatch, ConversationTurn } from '../types/index.js';
@@ -34,6 +35,7 @@ export class Orchestrator {
   private webService: WebService;
   private telemetryService?: TelemetryService;
   private databaseService?: DatabaseService;
+  private ragService?: RAGService;
 
   constructor(
     router: IntentRouter,
@@ -42,7 +44,8 @@ export class Orchestrator {
     conversationManager: ConversationManager,
     webService?: WebService,
     telemetryService?: TelemetryService,
-    databaseService?: DatabaseService
+    databaseService?: DatabaseService,
+    ragService?: RAGService
   ) {
     this.router = router;
     this.registry = registry;
@@ -51,6 +54,7 @@ export class Orchestrator {
     this.webService = webService || new WebService();
     this.telemetryService = telemetryService;
     this.databaseService = databaseService;
+    this.ragService = ragService;
   }
 
   /**
@@ -86,6 +90,19 @@ export class Orchestrator {
 
     let history: ConversationTurn[] = this.conversationManager.getHistory(conversationId);
     let memoriesCount = 0;
+    let semanticMatches: string[] = [];
+
+    if (this.ragService) {
+      try {
+        const matches = await this.ragService.searchSemanticMemories(sanitizedInput, 2, 0.52);
+        if (matches.length > 0) {
+          semanticMatches = matches.map((m) => `${m.key}: ${m.value}`);
+        }
+      } catch {
+        // Fall back gracefully if embeddings offline
+      }
+    }
+
     if (this.databaseService) {
       try {
         const memories = this.databaseService.getAllMemories();
@@ -97,6 +114,7 @@ export class Orchestrator {
     tracer.endNode('node_context', {
       historyTurns: history.length,
       memoriesLoaded: memoriesCount,
+      semanticMatchesLoaded: semanticMatches.length,
     });
 
     let result: ProcessResult;
@@ -153,6 +171,13 @@ export class Orchestrator {
 
       // Keep active prompt context focused to the last 6 turns to keep prompt eval <100ms
       const promptHistory = history.slice(-6);
+      if (semanticMatches.length > 0) {
+        promptHistory.unshift({
+          role: 'system',
+          content: `Relevant personal memories about Eren:\n${semanticMatches.join('\n')}`,
+          timestamp: new Date(),
+        });
+      }
 
       // Intelligently gate tool schemas: only pass tools if the user prompt actually requires them
       const candidateTools = getToolsForPrompt(sanitizedInput);
@@ -224,7 +249,7 @@ export class Orchestrator {
             );
 
             // ── Node 5: Tool Execution Node(s) ──────────────────────────────────
-            const toolResults: Array<{ name: string; args: any; output: string }> = [];
+            const toolResults: Array<{ name: string; args: any; output: string; data?: any }> = [];
 
             for (let i = 0; i < initialLLMRes.toolCalls.length; i++) {
               const tc = initialLLMRes.toolCalls[i];
@@ -236,6 +261,7 @@ export class Orchestrator {
                 registry: this.registry,
                 dbService: this.databaseService,
                 webService: this.webService,
+                ragService: this.ragService,
                 conversationId,
               });
 
@@ -243,6 +269,7 @@ export class Orchestrator {
                 name: tc.function.name,
                 args: tc.function.arguments,
                 output: toolRes.result,
+                data: toolRes.data,
               });
 
               tracer.endNode(toolNodeId, { result: toolRes.result });
@@ -292,10 +319,16 @@ export class Orchestrator {
               }
             );
 
+            const toolData = toolResults.reduce<Record<string, any>>((acc, tr) => {
+              if (tr.data) Object.assign(acc, tr.data);
+              return acc;
+            }, {});
+
             result = {
               response: synthesisRes.content,
               provider: synthesisRes.provider,
               speak: true,
+              data: Object.keys(toolData).length > 0 ? toolData : undefined,
             };
           } else {
             // Direct LLM conversational answer (no tools required)

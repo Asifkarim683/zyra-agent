@@ -75,3 +75,26 @@ export interface RoutineItem {
   actions: RoutineAction[];
   enabled: boolean;
 }
+
+export interface WebSource {
+  title: string;
+  snippet: string;
+  url: string;
+  domain?: string;
+}
+
+export interface KnowledgeChunk {
+  id: string;
+  title: string;
+  source: string;
+  content: string;
+  score?: number;
+}
+
+export interface DocumentItem {
+  source: string;
+  title: string;
+  chunkCount: number;
+  createdAt: string;
+}
+

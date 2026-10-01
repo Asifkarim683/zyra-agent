@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { ChatArea } from './components/ChatArea';
 import { QuickRoutines } from './components/QuickRoutines';
 import { MemoryModal } from './components/MemoryModal';
+import { KnowledgeModal } from './components/KnowledgeModal';
 import { useVoice } from './hooks/useVoice';
 import type { ChatMessage, SystemHealth, RoutineItem } from './types';
 
@@ -43,6 +44,7 @@ export function App() {
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
   const [isRoutinesOpen, setIsRoutinesOpen] = useState(false);
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
+  const [isKnowledgeOpen, setIsKnowledgeOpen] = useState(false);
 
   // Generate or load persistent conversationId
   const [conversationId, setConversationId] = useState<string>(() => {
@@ -280,6 +282,7 @@ export function App() {
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
         onOpenMemory={() => setIsMemoryOpen(true)}
+        onOpenKnowledge={() => setIsKnowledgeOpen(true)}
         onNewChat={handleNewChat}
       />
 
@@ -307,6 +310,11 @@ export function App() {
       <MemoryModal
         isOpen={isMemoryOpen}
         onClose={() => setIsMemoryOpen(false)}
+      />
+
+      <KnowledgeModal
+        isOpen={isKnowledgeOpen}
+        onClose={() => setIsKnowledgeOpen(false)}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import { Orchestrator } from './core/orchestrator.js';
 import { SchedulerService } from './services/scheduler.js';
 import { WebService } from './services/web-service.js';
 import { DatabaseService } from './services/database.js';
+import { RAGService } from './services/rag-service.js';
 import { SystemAutomationService } from './services/system-automation-service.js';
 import { TelemetryService } from './services/telemetry-service.js';
 
@@ -20,6 +21,9 @@ export const systemAutomationService = new SystemAutomationService(databaseServi
 
 // 1.2 Initialize Telemetry Service for hardware and model network monitoring
 export const telemetryService = new TelemetryService();
+
+// 1.3 Initialize RAG Service for document ingestion and semantic vector retrieval
+export const ragService = new RAGService(databaseService);
 
 // 2. Initialize skill registry and register built-in skills (automation inactive in model by default)
 export const skillRegistry = new SkillRegistry();
@@ -53,7 +57,8 @@ export const orchestrator = new Orchestrator(
   conversationManager,
   webService,
   telemetryService,
-  databaseService
+  databaseService,
+  ragService
 );
 
 // 8. Initialize scheduler service for automated routines backed by SQLite
