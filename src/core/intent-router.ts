@@ -22,16 +22,10 @@ export class IntentRouter {
     private builtInPatterns: InternalIntentPattern[] = [
         // Music patterns
         {
-            pattern: /^(?:play music|play song|play) (.*)$/i,
+            pattern: /^(?:play|plaay|ply|paly|playy|plsy|playe|put\s+on|turn\s+on|listen\s+to|start\s+playing)(?:\s+(?:some\s+|a\s+)?(?:music|song))?\s*(.*)$/i,
             intent: 'play_music',
             skill: 'music',
-            extractParams: (match) => ({ query: match[1] })
-        },
-        {
-            pattern: /^(?:play music|play a song|play some music|play song)$/i,
-            intent: 'play_music',
-            skill: 'music',
-            extractParams: () => ({})
+            extractParams: (match) => ({ query: match[1]?.trim() || '' })
         },
         {
             pattern: /^(?:pause music|pause the music|pause song|pause track)$/i,

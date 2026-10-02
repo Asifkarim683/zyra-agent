@@ -51,6 +51,42 @@ export class MusicService {
   }
 
   /**
+   * Cleans a track title for natural speech and concise display.
+   * Strips parenthesized clutter like (Official Video), (feat. ...), [Lyrics],
+   * and removes duplicated leading "Artist - " prefixes.
+   */
+  public cleanShortTitle(rawTitle: string, artist: string = ''): string {
+    let cleaned = this.unescapeHtml(rawTitle).trim();
+
+    // Remove leading "Artist - " or "Artist – "
+    if (artist && artist !== 'YouTube') {
+      const escapedArtist = artist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      cleaned = cleaned.replace(new RegExp(`^${escapedArtist}\\s*[-–—:]\\s*`, 'i'), '');
+    }
+
+    // Strip leading "Someone - " prefix if present before song title
+    cleaned = cleaned.replace(/^[^-–—:]+[-–—:]\s*/i, (match) => {
+      return match.length < cleaned.length ? '' : match;
+    });
+
+    // Strip bracketed and parenthesized video/audio noise
+    cleaned = cleaned
+      .replace(
+        /\s*[\(\[][^()\[\]]*(?:official|video|music\s+video|audio|lyrics?|remaster|visualizer|hd|4k|hq|single|full\s+song|version|extended|feat\.|ft\.|featuring|slowed|reverb)[^()\[\]]*[\)\]]/gi,
+        ''
+      )
+      .replace(/\s*(?:ft\.|feat\.|featuring)\s+[^-–—()\[\]]+/gi, '')
+      .trim();
+
+    // If cleaning emptied the title, fall back to portion before any '-' or '('
+    if (!cleaned) {
+      cleaned = rawTitle.split(/[-–—(]/)[0].trim();
+    }
+
+    return cleaned || this.unescapeHtml(rawTitle).trim();
+  }
+
+  /**
    * Searches for music tracks on YouTube.
    * Uses YouTube Data API v3 if key is configured, or an ultra-fast zero-config parser.
    */
@@ -68,18 +104,21 @@ export class MusicService {
         if (res.ok) {
           const data = (await res.json()) as any;
           if (Array.isArray(data.items)) {
-            const tracks: MusicTrack[] = data.items.map((item: any) => ({
-              id: item.id.videoId,
-              title: this.unescapeHtml(item.snippet.title),
-              artist: this.unescapeHtml(item.snippet.channelTitle),
-              platform: 'youtube',
-              thumbnail:
-                item.snippet.thumbnails?.high?.url ||
-                item.snippet.thumbnails?.medium?.url ||
-                `https://i.ytimg.com/vi/${item.id.videoId}/hqdefault.jpg`,
-              url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-              embedUrl: `https://www.youtube.com/embed/${item.id.videoId}?autoplay=1&enablejsapi=1`,
-            }));
+            const tracks: MusicTrack[] = data.items.map((item: any) => {
+              const artist = this.unescapeHtml(item.snippet.channelTitle);
+              return {
+                id: item.id.videoId,
+                title: this.cleanShortTitle(item.snippet.title, artist),
+                artist,
+                platform: 'youtube',
+                thumbnail:
+                  item.snippet.thumbnails?.high?.url ||
+                  item.snippet.thumbnails?.medium?.url ||
+                  `https://i.ytimg.com/vi/${item.id.videoId}/hqdefault.jpg`,
+                url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+                embedUrl: `https://www.youtube.com/embed/${item.id.videoId}?autoplay=1&enablejsapi=1`,
+              };
+            });
             if (tracks.length > 0) return tracks;
           }
         }
@@ -117,7 +156,7 @@ export class MusicService {
                 const video = item.videoRenderer;
                 if (video && video.videoId) {
                   const videoId = video.videoId;
-                  const title = video.title?.runs?.[0]?.text || trimmed;
+                  const rawTitle = video.title?.runs?.[0]?.text || trimmed;
                   const artist = video.ownerText?.runs?.[0]?.text || 'YouTube';
                   const thumbnail =
                     video.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
@@ -126,7 +165,7 @@ export class MusicService {
 
                   tracks.push({
                     id: videoId,
-                    title: this.unescapeHtml(title),
+                    title: this.cleanShortTitle(rawTitle, artist),
                     artist: this.unescapeHtml(artist),
                     platform: 'youtube',
                     thumbnail,
@@ -152,7 +191,7 @@ export class MusicService {
             const videoId = videoIdMatch[1];
             tracks.push({
               id: videoId,
-              title: trimmed,
+              title: this.cleanShortTitle(trimmed),
               artist: 'YouTube',
               platform: 'youtube',
               thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
@@ -172,7 +211,7 @@ export class MusicService {
     return [
       {
         id: 'jfKfPfyJRdk',
-        title: `${trimmed} (Chill Lofi)`,
+        title: 'Chill Lofi Beats',
         artist: 'Lofi Girl',
         platform: 'youtube',
         thumbnail: 'https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg',
@@ -383,7 +422,7 @@ export class MusicService {
 
             return {
               id: synthId,
-              title: this.unescapeHtml(r.trackName),
+              title: this.cleanShortTitle(r.trackName, r.artistName),
               artist: this.unescapeHtml(r.artistName),
               platform: 'spotify',
               thumbnail: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb', '600x600bb') : '',
@@ -401,18 +440,96 @@ export class MusicService {
       logger.warn('Failed to resolve music metadata via iTunes fallback', { error: String(err) });
     }
 
-    // 5. Curated authentic Spotify track fallback (Queen - Bohemian Rhapsody)
+    // 5. Fallback: Autocorrect Bridge via YouTube Search Engine
+    // YouTube / Google search engines handle spelling errors (e.g. "blnding lights", "starby") effortlessly.
+    // If Spotify & iTunes failed due to typos in user query, we leverage YouTube's autocorrected top result
+    // to retrieve the accurate title & artist, then link with iTunes or synthesize Spotify metadata.
+    try {
+      const ytCandidates = await this.searchYouTube(trimmed);
+      if (ytCandidates.length > 0) {
+        const top = ytCandidates[0];
+        if (top.id !== 'jfKfPfyJRdk') {
+          const correctedSearch = `${top.title} ${top.artist}`;
+          try {
+            const retryRes = await fetch(
+              `https://itunes.apple.com/search?term=${encodeURIComponent(correctedSearch)}&entity=song&limit=3`
+            );
+            if (retryRes.ok) {
+              const retryData = (await retryRes.json()) as any;
+              if (Array.isArray(retryData.results) && retryData.results.length > 0) {
+                const r = retryData.results[0];
+                const durationSec = Math.round(r.trackTimeMillis / 1000);
+                const mins = Math.floor(durationSec / 60);
+                const secs = durationSec % 60;
+                return [
+                  {
+                    id: `spot_${r.trackId}`,
+                    title: this.cleanShortTitle(r.trackName, r.artistName),
+                    artist: this.unescapeHtml(r.artistName),
+                    platform: 'spotify',
+                    thumbnail: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb', '600x600bb') : top.thumbnail,
+                    url: `https://open.spotify.com/search/${encodeURIComponent(r.trackName + ' ' + r.artistName)}`,
+                    embedUrl: `https://open.spotify.com/embed/track/7qiZfU4dY1lWllzX7mPBI3?utm_source=generator&theme=0`,
+                    previewUrl: r.previewUrl || undefined,
+                    audioFallbackUrl: top.embedUrl,
+                    duration: `${mins}:${secs.toString().padStart(2, '0')}`,
+                  },
+                ];
+              }
+            }
+          } catch {
+            // Ignore retry error and use top directly
+          }
+
+          // Direct synthesis from YouTube's autocorrected metadata
+          return [
+            {
+              id: `spot_${top.id}`,
+              title: this.cleanShortTitle(top.title, top.artist),
+              artist: top.artist !== 'YouTube' ? top.artist : 'Various Artists',
+              platform: 'spotify',
+              thumbnail: top.thumbnail,
+              url: `https://open.spotify.com/search/${encodeURIComponent(top.title + ' ' + top.artist)}`,
+              embedUrl: `https://open.spotify.com/embed/track/7qiZfU4dY1lWllzX7mPBI3?utm_source=generator&theme=0`,
+              audioFallbackUrl: top.embedUrl,
+              duration: top.duration,
+            },
+          ];
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to autocorrect track query via YouTube bridge', { error: String(err) });
+    }
+
+    // 6. Queen - Bohemian Rhapsody only if Queen or Bohemian Rhapsody was explicitly requested!
+    if (/bohemian|rhapsody|queen/i.test(trimmed)) {
+      return [
+        {
+          id: '2JiDi0qAXsPwhPqA2qaKGt',
+          title: 'Bohemian Rhapsody',
+          artist: 'Queen',
+          platform: 'spotify',
+          thumbnail: 'https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e02fdab4a163ab9f6db72c952ee',
+          url: 'https://open.spotify.com/track/2JiDi0qAXsPwhPqA2qaKGt',
+          embedUrl: 'https://open.spotify.com/embed/track/2JiDi0qAXsPwhPqA2qaKGt?utm_source=generator&theme=0',
+          previewUrl: 'https://p.scdn.co/mp3-preview/d863e52ed0cebbb746edcc7fb1c5b46d9a9dfe94',
+          duration: '5:55',
+        },
+      ];
+    }
+
+    // Default neutral fallback: Chill Lofi Beats
     return [
       {
-        id: '2JiDi0qAXsPwhPqA2qaKGt',
-        title: 'Bohemian Rhapsody',
-        artist: 'Queen',
+        id: 'jfKfPfyJRdk',
+        title: 'Chill Lofi Beats',
+        artist: 'Lofi Girl',
         platform: 'spotify',
-        thumbnail: 'https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e02fdab4a163ab9f6db72c952ee',
-        url: 'https://open.spotify.com/track/2JiDi0qAXsPwhPqA2qaKGt',
-        embedUrl: 'https://open.spotify.com/embed/track/2JiDi0qAXsPwhPqA2qaKGt?utm_source=generator&theme=0',
-        previewUrl: 'https://p.scdn.co/mp3-preview/d863e52ed0cebbb746edcc7fb1c5b46d9a9dfe94',
-        duration: '5:55',
+        thumbnail: 'https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg',
+        url: 'https://open.spotify.com/search/Chill%20Lofi%20Beats',
+        embedUrl: 'https://open.spotify.com/embed/track/7qiZfU4dY1lWllzX7mPBI3?utm_source=generator&theme=0',
+        audioFallbackUrl: 'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&enablejsapi=1',
+        duration: '3:30',
       },
     ];
   }
@@ -424,14 +541,22 @@ export class MusicService {
     let cleanQuery = query.trim();
     let platform: 'youtube' | 'spotify' = preferredPlatform;
 
-    // Detect platform from query string if user said "on youtube" or "on spotify"
-    if (/\bon\s+spotify\b/i.test(cleanQuery) || /\bspotify\b/i.test(cleanQuery)) {
+    // Detect platform from query string if user said "on youtube" or "on spotify" (including common spelling typos)
+    const spotifyRegex = /\b(?:on\s+)?(?:spotify|spotfy|spoti|spotif|spotofy|spottify|spotiify)\b/gi;
+    const youtubeRegex = /\b(?:on\s+)?(?:youtube|yt|youtub|youtbe|yuotube|youtubee|yotube)\b/gi;
+
+    if (spotifyRegex.test(cleanQuery)) {
       platform = 'spotify';
-      cleanQuery = cleanQuery.replace(/\bon\s+spotify\b/gi, '').replace(/\bspotify\b/gi, '').trim();
-    } else if (/\bon\s+youtube\b/i.test(cleanQuery) || /\byoutube\b/i.test(cleanQuery)) {
+      cleanQuery = cleanQuery.replace(spotifyRegex, '').trim();
+    } else if (youtubeRegex.test(cleanQuery)) {
       platform = 'youtube';
-      cleanQuery = cleanQuery.replace(/\bon\s+youtube\b/gi, '').replace(/\byoutube\b/gi, '').trim();
+      cleanQuery = cleanQuery.replace(youtubeRegex, '').trim();
     }
+
+    // Clean any leading play verbs if still present
+    cleanQuery = cleanQuery
+      .replace(/^(?:play|plaay|ply|paly|playy|plsy|playe|put\s+on|turn\s+on|listen\s+to|start\s+playing)\s+/i, '')
+      .trim();
 
     if (!cleanQuery || /^(?:music|a music|some music|song|a song|some songs?)$/i.test(cleanQuery)) {
       cleanQuery = 'chill lofi beats to relax';
@@ -450,6 +575,7 @@ export class MusicService {
     }
 
     const selectedTrack = tracks[0];
+    selectedTrack.title = this.cleanShortTitle(selectedTrack.title, selectedTrack.artist);
 
     // For Spotify tracks: automatically link a YouTube background audio stream
     // This allows the browser to play continuous full audio through speakers

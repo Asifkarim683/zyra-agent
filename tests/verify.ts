@@ -59,6 +59,9 @@ async function runTests() {
     { input: 'current time', expectedSkill: 'time', expectedIntent: 'get_time' },
     { input: 'what is today date', expectedSkill: 'time', expectedIntent: 'get_date' },
     { input: 'play Bohemian Rhapsody', expectedSkill: 'music', expectedIntent: 'play_music' },
+    { input: 'plaay starboy', expectedSkill: 'music', expectedIntent: 'play_music' },
+    { input: 'ply starboy on spotfy', expectedSkill: 'music', expectedIntent: 'play_music' },
+    { input: 'put on blinding lights', expectedSkill: 'music', expectedIntent: 'play_music' },
     { input: 'set alarm 7:00 AM', expectedSkill: 'alarm', expectedIntent: 'set_alarm' },
     { input: 'hello zyra', expectedSkill: 'greeting', expectedIntent: 'greet' },
     { input: 'stop', expectedSkill: 'control', expectedIntent: 'stop' },
@@ -101,7 +104,7 @@ async function runTests() {
   assert(greetingResult.response.includes('Eren'), 'Greeting skill personalized for owner', greetingResult.response);
 
   const musicResult = await orchestrator.process('play jazz', convId);
-  assert(musicResult.response.includes('jazz'), 'Music skill extracted query parameter', musicResult.response);
+  assert(musicResult.response.toLowerCase().includes('now playing'), 'Music skill returns playback confirmation', musicResult.response);
   assert(musicResult.data?.music?.track, 'Music skill returned resolved track payload');
   assert(musicResult.data?.music?.track?.embedUrl, 'Music track contains playable embedUrl');
 
@@ -287,7 +290,7 @@ async function runTests() {
 
   const triggerResults = await schedulerService.triggerRoutine('morning-routine');
   assert(triggerResults.length === 2, 'Routine actions executed sequentially', `Executed: ${triggerResults.length}`);
-  assert(triggerResults[0].response.includes('Morning Playlist'), 'First action played music');
+  assert(triggerResults[0].response.toLowerCase().includes('now playing'), 'First action played music');
   assert(triggerResults[1].response.includes('Eren'), 'Second action greeted owner');
 
   schedulerService.removeRoutine('morning-routine');
@@ -567,6 +570,50 @@ async function runTests() {
     assert(spotifyPlayJson.track && spotifyPlayJson.track.platform === 'spotify', 'Spotify play sets Spotify track');
     assert(spotifyPlayJson.track.audioFallbackUrl && spotifyPlayJson.track.audioFallbackUrl.includes('youtube'), 'Spotify track has audio fallback stream linked');
     assert(spotifyPlayJson.state.isPlaying === true, 'Spotify player state set to isPlaying: true');
+
+    // Verify typo tolerance: "blnding lights" resolves to Blinding Lights and NOT Bohemian Rhapsody
+    const typoPlayRes = await fetch(`http://localhost:${testPort}/api/v1/music/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'blnding lights', platform: 'spotify' }),
+    });
+    const typoPlayJson = await typoPlayRes.json();
+    assert(typoPlayRes.status === 200, 'POST /api/v1/music/play with typo returns 200');
+    assert(
+      typoPlayJson.track && /blinding lights/i.test(typoPlayJson.track.title),
+      'Typo query "blnding lights" autocorrects to Blinding Lights instead of Bohemian Rhapsody',
+      typoPlayJson.track?.title
+    );
+    assert(
+      !/bohemian rhapsody/i.test(typoPlayJson.track?.title || ''),
+      'Typo query does not fall back to Bohemian Rhapsody'
+    );
+
+    // Verify MusicSkill response is concise and clean without repeated user query
+    const musicSkill = skillRegistry.get('music');
+    if (musicSkill) {
+      const skillExecRes = await musicSkill.execute({
+        intent: {
+          intent: 'play_music',
+          skill: 'music',
+          confidence: 1,
+          raw: 'play starboy',
+          parameters: { query: 'starboy' },
+        },
+        userId: 'test-user',
+        conversationId: 'test-conv',
+        history: [],
+      });
+      assert(
+        skillExecRes.response.startsWith('Now playing "Starboy"'),
+        'MusicSkill response states concise track name',
+        skillExecRes.response
+      );
+      assert(
+        !skillExecRes.response.includes('Now playing: starboy — "Starboy"'),
+        'MusicSkill response does not repeat the query twice'
+      );
+    }
 
   } finally {
     server.close();

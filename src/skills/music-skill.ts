@@ -17,7 +17,7 @@ export class MusicSkill extends BaseSkill {
 
   patterns: IntentPattern[] = [
     {
-      pattern: /^(?:play (?:some |a )?music|play (?:a )?song|play)\s*(.*)$/i,
+      pattern: /^(?:play|plaay|ply|paly|playy|plsy|playe|put\s+on|turn\s+on|listen\s+to|start\s+playing)(?:\s+(?:some\s+|a\s+)?(?:music|song))?\s*(.*)$/i,
       intent: 'play_music',
       extractParams: (m) => ({ query: m[1]?.trim() || '' }),
     },
@@ -97,9 +97,10 @@ export class MusicSkill extends BaseSkill {
     const track = await this.musicService.play(display, platformParam);
     const platformName = track.platform === 'spotify' ? 'Spotify' : 'YouTube';
 
-    const responseText = isGeneric
-      ? `Playing music — "${track.title}" by ${track.artist} on ${platformName}.`
-      : `Now playing: ${display} — "${track.title}" by ${track.artist} on ${platformName}.`;
+    const hasArtist = track.artist && track.artist !== 'YouTube' && track.artist !== 'Various Artists';
+    const responseText = hasArtist
+      ? `Now playing "${track.title}" by ${track.artist} on ${platformName}.`
+      : `Now playing "${track.title}" on ${platformName}.`;
 
     return {
       response: responseText,

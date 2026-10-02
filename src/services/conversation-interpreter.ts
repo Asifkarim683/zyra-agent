@@ -1109,17 +1109,22 @@ export class ConversationInterpreter {
       return { intent: 'next_music', parameters: {}, entities: {} };
     }
 
-    const match = cleaned.match(/^(?:play music|play song|play some music|play)\s*(.*)$/i);
+    const match = cleaned.match(
+      /^(?:play|plaay|ply|paly|playy|plsy|playe|put\s+on|turn\s+on|listen\s+to|start\s+playing)(?:\s+(?:some\s+|a\s+)?(?:music|song))?\s*(.*)$/i
+    );
     if (match) {
       let query = match[1].trim();
       let platform = 'youtube';
 
-      if (/\bon\s+spotify\b/i.test(query) || /\bspotify\b/i.test(query)) {
+      const spotifyRegex = /\b(?:on\s+)?(?:spotify|spotfy|spoti|spotif|spotofy|spottify|spotiify)\b/gi;
+      const youtubeRegex = /\b(?:on\s+)?(?:youtube|yt|youtub|youtbe|yuotube|youtubee|yotube)\b/gi;
+
+      if (spotifyRegex.test(query)) {
         platform = 'spotify';
-        query = query.replace(/\bon\s+spotify\b/gi, '').replace(/\bspotify\b/gi, '').trim();
-      } else if (/\bon\s+youtube\b/i.test(query) || /\byoutube\b/i.test(query)) {
+        query = query.replace(spotifyRegex, '').trim();
+      } else if (youtubeRegex.test(query)) {
         platform = 'youtube';
-        query = query.replace(/\bon\s+youtube\b/gi, '').replace(/\byoutube\b/gi, '').trim();
+        query = query.replace(youtubeRegex, '').trim();
       }
 
       return {

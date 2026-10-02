@@ -277,7 +277,10 @@ export function getToolsForPrompt(prompt: string): ToolDefinition[] {
     const t = TOOL_SCHEMAS.find((s) => s.function.name === 'get_voice_briefing');
     if (t) matched.push(t);
   }
-  const isMusicRequested = /\b(play|song|music|track|spotify|youtube|listen|tune|audio|pause music|resume music|stop music)\b/i.test(p);
+  const isMusicRequested =
+    /\b(play|plaay|ply|paly|playy|plsy|playe|put\s+on|turn\s+on|song|music|track|spotify|spotfy|spoti|spotif|youtube|youtub|yt|listen|tune|audio|pause\s+music|resume\s+music|stop\s+music)\b/i.test(
+      p
+    );
   if (isMusicRequested) {
     const t1 = TOOL_SCHEMAS.find((s) => s.function.name === 'play_music');
     const t2 = TOOL_SCHEMAS.find((s) => s.function.name === 'control_music');
