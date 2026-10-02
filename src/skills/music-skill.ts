@@ -92,12 +92,17 @@ export class MusicSkill extends BaseSkill {
     }
 
     // Default: play_music
-    const display = query && !query.match(/^(some |a )?(music|song)$/i) ? query.trim() : 'music';
+    const isGeneric = !query || /^(?:some |a )?(?:music|song)$/i.test(query.trim());
+    const display = isGeneric ? 'music' : query.trim();
     const track = await this.musicService.play(display, platformParam);
     const platformName = track.platform === 'spotify' ? 'Spotify' : 'YouTube';
 
+    const responseText = isGeneric
+      ? `Playing music — "${track.title}" by ${track.artist} on ${platformName}.`
+      : `Now playing: ${display} — "${track.title}" by ${track.artist} on ${platformName}.`;
+
     return {
-      response: `Now playing: ${display} — "${track.title}" by ${track.artist} on ${platformName}.`,
+      response: responseText,
       action: 'music_play',
       data: {
         music: {

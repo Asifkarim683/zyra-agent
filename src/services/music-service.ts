@@ -76,7 +76,7 @@ export class MusicService {
                 item.snippet.thumbnails?.medium?.url ||
                 `https://i.ytimg.com/vi/${item.id.videoId}/hqdefault.jpg`,
               url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-              embedUrl: `https://www.youtube-nocookie.com/embed/${item.id.videoId}?autoplay=1&enablejsapi=1`,
+              embedUrl: `https://www.youtube.com/embed/${item.id.videoId}?autoplay=1&enablejsapi=1`,
             }));
             if (tracks.length > 0) return tracks;
           }
@@ -129,7 +129,7 @@ export class MusicService {
                     platform: 'youtube',
                     thumbnail,
                     url: `https://www.youtube.com/watch?v=${videoId}`,
-                    embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1`,
+                    embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`,
                     duration,
                   });
 
@@ -155,7 +155,7 @@ export class MusicService {
               platform: 'youtube',
               thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
               url: `https://www.youtube.com/watch?v=${videoId}`,
-              embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1`,
+              embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`,
             });
           }
         }
@@ -175,7 +175,7 @@ export class MusicService {
         platform: 'youtube',
         thumbnail: 'https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg',
         url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
-        embedUrl: 'https://www.youtube-nocookie.com/embed/jfKfPfyJRdk?autoplay=1&enablejsapi=1',
+        embedUrl: 'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&enablejsapi=1',
       },
     ];
   }
@@ -342,7 +342,7 @@ export class MusicService {
       cleanQuery = cleanQuery.replace(/\bon\s+youtube\b/gi, '').replace(/\byoutube\b/gi, '').trim();
     }
 
-    if (!cleanQuery) {
+    if (!cleanQuery || /^(?:music|a music|some music|song|a song|some songs?)$/i.test(cleanQuery)) {
       cleanQuery = 'chill lofi beats to relax';
     }
 
