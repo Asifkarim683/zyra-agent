@@ -41,8 +41,29 @@ Zyra decides when to invoke tools based on natural language — no slash command
 | `manage_memory` | Remember personal facts, habits, and preferences |
 | `manage_timer` | Set, check, or cancel countdown timers |
 | `manage_tasks` | Add, list, or complete to-do items |
+| `execute_calculation_or_code` | Sandboxed JavaScript execution for 100% precision math, stats, finance, and conversions |
+| `get_voice_briefing` | Generate comprehensive live daily voice briefing (weather, tasks, news, system stats) |
 
 Tools are **dynamically injected** — only relevant tool schemas are sent to the LLM based on regex intent matching, eliminating prompt bloat and false-positive calls.
+
+### ⚡ Safe Math & Code Execution Sandbox
+- **Node.js `node:vm` isolation** with strict timeout protection (1500ms) and token blocking against host tampering.
+- **Built-in computational libraries**:
+  - **Statistics**: `avg`, `median`, `sum`, `min`, `max`, `stdDev`, `variance`, `factorial`, `combinations`, `permutations`
+  - **Finance**: `compoundInterest`, `loanPayment` (monthly EMI calculations)
+  - **Date & Time**: `daysBetween`, `hoursBetween`, `addDays`
+  - **Unit Conversions**: `unitConvert` (length, mass, temperature, data storage)
+- **UI Calculation Card**: Evaluated expressions render in chat with syntax pills, execution latency (e.g. `1.2ms`), and output badges.
+
+### 🎙️ Proactive & Scheduled Voice Briefings
+- **Dynamic Intelligence Compilation**: Synthesizes time of day, live local weather (Open-Meteo), uncompleted to-do tasks from SQLite, top world/tech news headlines with links, and GPU/RAM telemetry.
+- **Dual Voice & Text Output**:
+  - `voiceText`: Natural continuous conversational speech crafted exclusively for the British female voice (`en-GB-SoniaNeural`) without awkward punctuation or asterisks.
+  - `displayText`: Rich markdown dashboard rendered in chat.
+- **Proactive & On-Demand Delivery**:
+  - Trigger on-demand via header button `[BRIEFING]` or by saying *"Give me my morning briefing"* / *"Brief me"*.
+  - Runs autonomously on scheduled cron intervals (`0 8 * * *` morning briefing / `0 20 * * *` evening summary).
+  - Automatically pops into chat and announces itself when voice is active.
 
 ### 🌐 Live Web Intelligence
 - **DuckDuckGo Lite search** — POST-based scraping for clean organic results
@@ -60,6 +81,7 @@ Tools are **dynamically injected** — only relevant tool schemas are sent to th
 ### 🧩 Skill System
 Modular skill architecture with hot-registration:
 
+- **Briefing** — Proactive and on-demand morning and evening voice reports
 - **Greeting** — Context-aware greetings
 - **Time / Date** — Timezone-aware responses
 - **Weather** — Live weather data
@@ -207,6 +229,10 @@ zyra-agent/
 | `POST` | `/api/documents` | Ingest a new document |
 | `DELETE` | `/api/documents/:source` | Remove an indexed document |
 | `POST` | `/api/documents/query` | Semantic search across documents |
+| `POST` | `/api/briefings/generate` | Generate on-demand voice & text briefing |
+| `GET` | `/api/briefings/pending` | Check pending scheduled proactive voice briefings |
+| `POST` | `/api/briefings/ack` | Acknowledge delivered voice briefing |
+| `POST` | `/api/sandbox/execute` | Execute sandboxed JavaScript calculation or expression |
 
 ---
 
@@ -299,14 +325,16 @@ The backend runs on `http://localhost:3000` and the frontend on `http://localhos
 npm test
 ```
 
-Runs the full verification suite — **121 tests** covering:
+Runs the full verification suite — **146 tests** covering:
 - Configuration validation
 - Intent routing accuracy
 - Skill registration and execution
-- Tool schema validation
-- Pipeline tracing
-- Database operations
-- Embedding and RAG services
+- Tool schema validation and dynamic regex gating
+- Pipeline tracing and node telemetry
+- Database operations (SQLite WAL mode)
+- Embedding and RAG services (nomic-embed-text)
+- Safe Math & Code Execution Sandbox (arithmetic, stats, finance, dates, unit conversion, security guards, timeout)
+- Proactive Voice Briefing service (weather, tasks, news, GPU telemetry, dual voice/text output)
 
 ---
 
