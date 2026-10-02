@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play, Globe, ExternalLink, BookOpen, FileText } from 'lucide-react';
+import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play, Globe, ExternalLink, BookOpen, FileText, Calculator, Radio } from 'lucide-react';
 import type { ChatMessage, WebSource, KnowledgeChunk } from '../types';
 
 interface MessageBubbleProps {
@@ -377,6 +377,143 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Safe Math & Code Execution Sandbox Card */}
+          {message.data?.calculation && (
+            <div
+              style={{
+                marginTop: '12px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: 'rgba(6, 78, 59, 0.16)',
+                border: '1px solid rgba(52, 211, 153, 0.32)',
+                boxShadow: '0 0 14px rgba(16, 185, 129, 0.08)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  marginBottom: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calculator size={13} color="#34d399" />
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.08em',
+                      color: '#34d399',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Safe Math & Code Sandbox
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontFamily: 'monospace',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    background: 'rgba(16, 185, 129, 0.18)',
+                    color: '#6ee7b7',
+                    border: '1px solid rgba(16, 185, 129, 0.28)',
+                  }}
+                >
+                  ⚡ {message.data.calculation.executionTimeMs}ms
+                </span>
+              </div>
+
+              <div
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  background: 'rgba(15, 23, 42, 0.85)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  fontFamily: 'monospace',
+                  fontSize: '11.5px',
+                  color: '#e2e8f0',
+                  marginBottom: '6px',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                }}
+              >
+                <span style={{ color: '#94a3b8' }}>eval&gt; </span>
+                <span style={{ color: '#38bdf8' }}>{message.data.calculation.code}</span>
+              </div>
+
+              {message.data.calculation.error ? (
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: '#f87171',
+                    fontFamily: 'monospace',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                  }}
+                >
+                  {message.data.calculation.error}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: '11.5px',
+                    color: '#a7f3d0',
+                    fontFamily: 'monospace',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.22)',
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: '6px',
+                  }}
+                >
+                  <span style={{ color: '#6ee7b7', fontWeight: 600 }}>result:</span>
+                  <span style={{ wordBreak: 'break-all' }}>
+                    {message.data.calculation.formattedResult || String(message.data.calculation.result)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Proactive Voice Briefing Badge */}
+          {message.data?.briefing && (
+            <div
+              style={{
+                marginTop: '10px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Radio size={13} color="#38bdf8" />
+              <span
+                style={{
+                  fontSize: '10.5px',
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.06em',
+                  color: '#38bdf8',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Neural Voice Briefing Synthesized • British Persona
+              </span>
             </div>
           )}
 

@@ -6,6 +6,8 @@ import { WebService } from '../services/web-service.js';
 import type { TelemetryService } from '../services/telemetry-service.js';
 import type { DatabaseService } from '../services/database.js';
 import type { RAGService } from '../services/rag-service.js';
+import type { SandboxService } from '../services/sandbox-service.js';
+import type { BriefingService } from '../services/briefing-service.js';
 import { PipelineTracer, type PipelineTrace } from './pipeline-tracer.js';
 import { TOOL_SCHEMAS, executeTool, getToolsForPrompt } from './tools.js';
 import type { SkillResult, SkillContext, IntentMatch, ConversationTurn } from '../types/index.js';
@@ -36,6 +38,8 @@ export class Orchestrator {
   private telemetryService?: TelemetryService;
   private databaseService?: DatabaseService;
   private ragService?: RAGService;
+  private sandboxService?: SandboxService;
+  private briefingService?: BriefingService;
 
   constructor(
     router: IntentRouter,
@@ -45,7 +49,9 @@ export class Orchestrator {
     webService?: WebService,
     telemetryService?: TelemetryService,
     databaseService?: DatabaseService,
-    ragService?: RAGService
+    ragService?: RAGService,
+    sandboxService?: SandboxService,
+    briefingService?: BriefingService
   ) {
     this.router = router;
     this.registry = registry;
@@ -55,6 +61,8 @@ export class Orchestrator {
     this.telemetryService = telemetryService;
     this.databaseService = databaseService;
     this.ragService = ragService;
+    this.sandboxService = sandboxService;
+    this.briefingService = briefingService;
   }
 
   /**
@@ -262,6 +270,8 @@ export class Orchestrator {
                 dbService: this.databaseService,
                 webService: this.webService,
                 ragService: this.ragService,
+                sandboxService: this.sandboxService,
+                briefingService: this.briefingService,
                 conversationId,
               });
 

@@ -4,7 +4,7 @@ import { ChatArea } from './components/ChatArea';
 import { QuickRoutines } from './components/QuickRoutines';
 import { KnowledgeModal } from './components/KnowledgeModal';
 import { useVoice } from './hooks/useVoice';
-import type { ChatMessage, SystemHealth, RoutineItem } from './types';
+import type { ChatMessage, SystemHealth, RoutineItem, BriefingData } from './types';
 
 function extractSpeechChunk(buffer: string, isFinal = false): { chunk: string; rest: string } | null {
   if (isFinal) {
@@ -261,15 +261,48 @@ export function App() {
 
   handleSendMessageRef.current = handleSendMessage;
 
-  // Fetch telemetry and routines
+  // Fetch telemetry, routines, and pending proactive voice briefings
   const loadSystemInfo = async () => {
     try {
-      const [hRes, rRes] = await Promise.all([
+      const [hRes, rRes, bRes] = await Promise.all([
         fetch('/api/v1/health').then((r) => r.json()),
         fetch('/api/v1/routines').then((r) => r.json()),
+        fetch('/api/v1/briefings/pending').then((r) => r.json()).catch(() => ({ pending: [] })),
       ]);
       setHealth(hRes);
       setRoutines(rRes);
+
+      // Proactively deliver scheduled briefings if ready
+      if (bRes.pending && Array.isArray(bRes.pending) && bRes.pending.length > 0) {
+        for (const notif of bRes.pending) {
+          setMessages((prev) => {
+            // Avoid duplicate insertion
+            if (prev.some((m) => m.id === notif.id)) return prev;
+            return [
+              ...prev,
+              {
+                id: notif.id,
+                role: 'assistant',
+                content: notif.displayText,
+                timestamp: new Date(notif.createdAt),
+                provider: 'scheduler-briefing',
+                data: { briefing: notif },
+              },
+            ];
+          });
+
+          if (voice.ttsEnabled && notif.voiceText) {
+            voice.speak(notif.voiceText);
+          }
+
+          // Acknowledge delivered notification
+          fetch('/api/v1/briefings/ack', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: notif.id }),
+          }).catch(() => {});
+        }
+      }
     } catch (err) {
       console.warn('Failed to load system telemetry:', err);
     }
@@ -280,6 +313,41 @@ export function App() {
     const interval = setInterval(loadSystemInfo, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleTriggerBriefing = useCallback(async () => {
+    try {
+      voice.stopSpeaking();
+      setIsLoading(true);
+      const res = await fetch('/api/v1/briefings/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error('Failed to generate intelligence briefing');
+      const data: BriefingData = await res.json();
+
+      const assistantMessage: ChatMessage = {
+        id: data.id || crypto.randomUUID(),
+        role: 'assistant',
+        content: data.displayText,
+        timestamp: new Date(),
+        provider: 'briefing-engine',
+        data: {
+          briefing: data,
+        },
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+      setIsLoading(false);
+
+      if (voice.ttsEnabled && data.voiceText) {
+        voice.speak(data.voiceText);
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      console.error('Briefing error:', err);
+    }
+  }, [voice]);
 
   const handleTriggerRoutine = async (id: string) => {
     const res = await fetch(`/api/v1/routines/${id}/trigger`, { method: 'POST' });
@@ -300,9 +368,11 @@ export function App() {
         },
       ]);
 
-      const firstSpoken = data.results.find((r: any) => r.response)?.response;
-      if (firstSpoken) {
-        voice.speak(firstSpoken);
+      // Check if routine generated a briefing voice report
+      const briefingResult = data.results.find((r: any) => r.data?.briefing)?.data?.briefing;
+      const textToSpeak = briefingResult?.voiceText || data.results.find((r: any) => r.response)?.response;
+      if (textToSpeak && voice.ttsEnabled) {
+        voice.speak(textToSpeak);
       }
     }
     return data;
@@ -316,6 +386,7 @@ export function App() {
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
         onOpenKnowledge={() => setIsKnowledgeOpen(true)}
+        onTriggerBriefing={handleTriggerBriefing}
         onNewChat={handleNewChat}
       />
 

@@ -98,3 +98,26 @@ export interface DocumentItem {
   createdAt: string;
 }
 
+export interface CalculationData {
+  code: string;
+  result?: any;
+  formattedResult?: string;
+  logs: string[];
+  executionTimeMs: number;
+  error?: string;
+}
+
+export interface BriefingData {
+  id: string;
+  type: 'morning' | 'evening' | 'general';
+  displayText: string;
+  voiceText: string;
+  createdAt: string;
+  metadata?: {
+    weather?: string;
+    tasksCount: number;
+    gpuTemp?: number;
+    newsCount: number;
+  };
+}
+

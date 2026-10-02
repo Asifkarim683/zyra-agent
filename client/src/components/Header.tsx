@@ -1,4 +1,4 @@
-import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Plus, Activity, BookOpen } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Plus, Activity, BookOpen, Radio } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   onToggleTts: () => void;
   onOpenRoutines: () => void;
   onOpenKnowledge?: () => void;
+  onTriggerBriefing?: () => void;
   onNewChat?: () => void;
 }
 
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTts,
   onOpenRoutines,
   onOpenKnowledge,
+  onTriggerBriefing,
   onNewChat,
 }) => {
   return (
@@ -218,6 +220,42 @@ export const Header: React.FC<HeaderProps> = ({
           <PlayCircle size={13} color="#f59e0b" />
           <span>ROUTINES</span>
         </button>
+
+        {/* Live Voice Briefing Button */}
+        {onTriggerBriefing && (
+          <button
+            onClick={onTriggerBriefing}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 11px',
+              borderRadius: '8px',
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              fontSize: '11px',
+              fontWeight: 500,
+              fontFamily: 'var(--font-mono)',
+              color: '#38bdf8',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(56, 189, 248, 0.18)';
+              e.currentTarget.style.borderColor = '#38bdf8';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(56, 189, 248, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.25)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Generate & Speak Live Intelligence Briefing"
+          >
+            <Radio size={13} color="#38bdf8" />
+            <span>BRIEFING</span>
+          </button>
+        )}
 
         {/* External Model Node Monitor Link */}
         <a

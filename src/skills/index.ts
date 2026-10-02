@@ -9,9 +9,11 @@ import { WeatherSkill } from './weather-skill.js';
 import { MemorySkill } from './memory-skill.js';
 import { TimerSkill } from './timer-skill.js';
 import { TodoSkill } from './todo-skill.js';
+import { BriefingSkill } from './briefing-skill.js';
 import { SystemAutomationSkill } from './system-automation-skill.js';
 import { SystemAutomationService } from '../services/system-automation-service.js';
 import type { DatabaseService } from '../services/database.js';
+import type { BriefingService } from '../services/briefing-service.js';
 
 export * from './base-skill.js';
 export * from './greeting-skill.js';
@@ -24,6 +26,7 @@ export * from './weather-skill.js';
 export * from './memory-skill.js';
 export * from './timer-skill.js';
 export * from './todo-skill.js';
+export * from './briefing-skill.js';
 export * from './system-automation-skill.js';
 
 /**
@@ -32,14 +35,16 @@ export * from './system-automation-skill.js';
  * @param dbService Optional DatabaseService for memory and persistent skills.
  * @param automationService Optional SystemAutomationService for desktop automation.
  * @param options Optional configuration flags (enableAutomation defaults to false).
+ * @param briefingService Optional BriefingService for proactive voice briefings.
  */
 export function registerAllSkills(
   registry: SkillRegistry,
   dbService?: DatabaseService,
   automationService?: SystemAutomationService,
-  options: { enableAutomation?: boolean } = { enableAutomation: false }
+  options: { enableAutomation?: boolean } = { enableAutomation: false },
+  briefingService?: BriefingService
 ): void {
-  const skills = [
+  const skills: any[] = [
     new GreetingSkill(),
     new TimeSkill(),
     new AlarmSkill(),
@@ -51,6 +56,10 @@ export function registerAllSkills(
     new TimerSkill(),
     new TodoSkill(dbService),
   ];
+
+  if (briefingService) {
+    skills.push(new BriefingSkill(briefingService));
+  }
 
   // System Automation is intentionally kept inactive in the active model for now.
   // Preserved as an architectural idea and ready for future integration.

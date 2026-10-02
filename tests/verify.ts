@@ -5,8 +5,11 @@ import {
   orchestrator,
   schedulerService,
   conversationManager,
+  sandboxService,
+  briefingService,
 } from '../src/container.js';
 import { isPrivateIp, WebService } from '../src/services/web-service.js';
+import { getToolsForPrompt } from '../src/core/tools.js';
 import type { Server } from 'http';
 
 async function runTests() {
@@ -38,6 +41,7 @@ async function runTests() {
   assert(skillRegistry.has('memory'), 'Memory skill exists');
   assert(skillRegistry.has('timer'), 'Timer skill exists');
   assert(skillRegistry.has('todo'), 'Todo skill exists');
+  assert(skillRegistry.has('briefing'), 'Briefing skill exists');
   assert(!skillRegistry.has('system_automation'), 'System automation skill is removed from model by default');
 
   // 2. Test Intent Router
@@ -56,6 +60,8 @@ async function runTests() {
     { input: 'hello zyra', expectedSkill: 'greeting', expectedIntent: 'greet' },
     { input: 'stop', expectedSkill: 'control', expectedIntent: 'stop' },
     { input: 'how are you', expectedSkill: 'system-info', expectedIntent: 'how_are_you' },
+    { input: 'brief me', expectedSkill: 'briefing', expectedIntent: 'daily_briefing' },
+    { input: 'morning briefing', expectedSkill: 'briefing', expectedIntent: 'morning_briefing' },
     { input: 'write me a poem about quantum gravity', expectedSkill: null, expectedIntent: null },
   ];
 
@@ -372,6 +378,83 @@ async function runTests() {
       `http://localhost:${testPort}/api/v1/voice/tts?text=${encodeURIComponent('x'.repeat(1200))}`
     );
     assert(hugeTtsRes.status === 400, 'GET /api/v1/voice/tts rejects text exceeding max limit with 400 Bad Request');
+
+    // 8. Test HTTP Sandbox Endpoint
+    console.log('\n[8] Testing HTTP Sandbox & Math Execution Endpoints...');
+    const sandboxMathRes = await fetch(`http://localhost:${testPort}/api/v1/sandbox/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'sum(10, 20, 30) + 5' }),
+    });
+    const sandboxMathJson = await sandboxMathRes.json();
+    assert(sandboxMathRes.status === 200, 'POST /api/v1/sandbox/execute returns 200');
+    assert(sandboxMathJson.success === true, 'Sandbox math execution succeeded');
+    assert(sandboxMathJson.result === 65, 'Sandbox computed sum(10, 20, 30) + 5 = 65');
+
+    const sandboxBlockRes = await fetch(`http://localhost:${testPort}/api/v1/sandbox/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'process.exit(1)' }),
+    });
+    const sandboxBlockJson = await sandboxBlockRes.json();
+    assert(sandboxBlockJson.success === false, 'Sandbox blocked forbidden process token over HTTP');
+    assert(sandboxBlockJson.error?.includes('prohibited'), 'Sandbox explains security policy');
+
+    // 9. Test HTTP Briefing Endpoints
+    console.log('\n[9] Testing HTTP Voice Briefing Endpoints...');
+    const genBriefingRes = await fetch(`http://localhost:${testPort}/api/v1/briefings/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'morning' }),
+    });
+    const genBriefingJson = await genBriefingRes.json();
+    assert(genBriefingRes.status === 200, 'POST /api/v1/briefings/generate returns 200');
+    assert(genBriefingJson.type === 'morning', 'Briefing returned morning type');
+    assert(genBriefingJson.displayText.includes('Morning Briefing'), 'Briefing displayText contains header');
+    assert(genBriefingJson.voiceText.length > 50, 'Briefing voiceText contains natural conversational spoken sentences');
+
+    const pendingBriefingRes = await fetch(`http://localhost:${testPort}/api/v1/briefings/pending`);
+    const pendingBriefingJson = await pendingBriefingRes.json();
+    assert(pendingBriefingRes.status === 200, 'GET /api/v1/briefings/pending returns 200');
+    assert(Array.isArray(pendingBriefingJson.pending), 'Pending briefings returned as array');
+    assert(pendingBriefingJson.pending.length >= 1, 'Pending briefings contains newly generated notification');
+
+    const ackBriefingRes = await fetch(`http://localhost:${testPort}/api/v1/briefings/ack`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: genBriefingJson.id }),
+    });
+    const ackBriefingJson = await ackBriefingRes.json();
+    assert(ackBriefingRes.status === 200, 'POST /api/v1/briefings/ack returns 200');
+    assert(ackBriefingJson.success === true, 'Briefing notification acknowledged');
+
+    // 10. Test Standalone Math, Statistics & Conversion Helpers
+    console.log('\n[10] Testing Standalone Sandbox Engine & Mathematical Library...');
+    const basicMath = sandboxService.execute('2 + 3 * 4');
+    assert(basicMath.success && basicMath.result === 14, 'Basic arithmetic: 2 + 3 * 4 = 14');
+
+    const stats = sandboxService.execute('avg(10, 20, 30) + median(1, 3, 5, 7, 9)');
+    assert(stats.success && stats.result === 25, 'Statistics: avg(10, 20, 30) + median(1, 3, 5, 7, 9) = 25');
+
+    const compound = sandboxService.execute('compoundInterest(1000, 0.10, 1, 2)');
+    assert(compound.success && compound.result.finalAmount === 1210, 'Compound interest: $1,000 at 10% for 2 years = $1,210');
+
+    const dates = sandboxService.execute("daysBetween('2026-01-01', '2026-01-11')");
+    assert(dates.success && dates.result === 10, 'Date arithmetic: daysBetween returns 10 days');
+
+    const units = sandboxService.execute("unitConvert(100, 'km', 'miles')");
+    assert(units.success && Math.abs(units.result - 62.1371) < 0.01, 'Unit conversion: 100 km converts to ~62.14 miles');
+
+    const loopDefense = sandboxService.execute('while(true){}');
+    assert(!loopDefense.success && loopDefense.error?.includes('timed out'), 'Infinite loop execution timed out safely');
+
+    // 11. Test Dynamic Tool Injection for Math & Briefing
+    console.log('\n[11] Testing Dynamic Tool Gating for Math & Briefing...');
+    const mathTools = getToolsForPrompt('please calculate the compound interest on 5000 dollars at 6%');
+    assert(mathTools.some((t) => t.function.name === 'execute_calculation_or_code'), 'Math prompt routes to execute_calculation_or_code tool');
+
+    const briefingTools = getToolsForPrompt('give me my morning voice briefing');
+    assert(briefingTools.some((t) => t.function.name === 'get_voice_briefing'), 'Briefing prompt routes to get_voice_briefing tool');
 
   } finally {
     server.close();

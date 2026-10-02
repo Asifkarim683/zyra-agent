@@ -1,6 +1,8 @@
 import type { DatabaseService } from '../services/database.js';
 import type { WebService } from '../services/web-service.js';
 import type { RAGService } from '../services/rag-service.js';
+import type { SandboxService } from '../services/sandbox-service.js';
+import type { BriefingService } from '../services/briefing-service.js';
 import type { SkillRegistry } from './skill-registry.js';
 import { logger } from '../config/logger.js';
 import { config } from '../config/index.js';
@@ -132,6 +134,35 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'execute_calculation_or_code',
+      description: 'Execute a sandboxed JavaScript mathematical expression or calculation script. Use this whenever Eren asks for mathematical calculations, arithmetic, formulas, percentages, statistical analysis, unit conversions, loan/interest calculations, or date computations to guarantee 100% precision.',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: { type: 'string', description: 'The JavaScript mathematical expression or script to evaluate, e.g. "compoundInterest(10000, 0.07, 12, 10)" or "2 * Math.PI * 6371" or "daysBetween(\'2026-01-01\', \'2026-10-02\')"' },
+          description: { type: 'string', description: 'Brief explanation of the calculation' },
+        },
+        required: ['code'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_voice_briefing',
+      description: 'Generate a comprehensive live daily voice briefing for Eren covering weather, pending to-dos, top news headlines, and system hardware status.',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['morning', 'evening', 'general'], description: 'Type of briefing' },
+          location: { type: 'string', description: 'Optional location for weather' },
+        },
+      },
+    },
+  },
 ];
 
 /**
@@ -165,6 +196,15 @@ export function getToolsForPrompt(prompt: string): ToolDefinition[] {
 
   // Explicit memory requests
   const isMemoryRequested = /\b(remember\s+that|don't\s+forget\s+that|keep\s+in\s+mind|store\s+this\s+fact|my\s+favorite)\b/i.test(p);
+
+  // Math, calculations, finance, conversions, and code execution
+  const isMathRequested =
+    /\b(calculate|computation|compute|math|formula|equation|sum|average|mean|median|stddev|standard\s+deviation|percentage|percent|compound\s+interest|interest\s+rate|loan|monthly\s+payment|factorial|convert|fahrenheit|celsius|kilometers|miles|days\s+between|how\s+many\s+days|sandbox|eval|run\s+code|execute\s+code)\b|[\d\.]+\s*[\+\-\*\/\^\%]\s*[\d\.]+/i.test(
+      p
+    );
+
+  // Daily voice briefing requests
+  const isBriefingRequested = /\b(briefing|brief\s+me|daily\s+summary|morning\s+update|evening\s+update)\b/i.test(p);
 
   const matched: ToolDefinition[] = [];
 
@@ -200,6 +240,14 @@ export function getToolsForPrompt(prompt: string): ToolDefinition[] {
     const t = TOOL_SCHEMAS.find((s) => s.function.name === 'manage_memory');
     if (t) matched.push(t);
   }
+  if (isMathRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'execute_calculation_or_code');
+    if (t) matched.push(t);
+  }
+  if (isBriefingRequested) {
+    const t = TOOL_SCHEMAS.find((s) => s.function.name === 'get_voice_briefing');
+    if (t) matched.push(t);
+  }
 
   return matched;
 }
@@ -209,6 +257,8 @@ export interface ToolExecutionContext {
   dbService?: DatabaseService;
   webService?: WebService;
   ragService?: RAGService;
+  sandboxService?: SandboxService;
+  briefingService?: BriefingService;
   conversationId: string;
 }
 
@@ -378,6 +428,55 @@ export async function executeTool(
           return { result: res.response };
         }
         return { result: `Task ${action} processed.` };
+      }
+
+      case 'execute_calculation_or_code': {
+        const code = String(args.code || '').trim();
+        if (ctx.sandboxService) {
+          const evalRes = ctx.sandboxService.execute(code);
+          if (evalRes.success) {
+            return {
+              result: `Calculated successfully: ${evalRes.formattedResult}`,
+              data: {
+                calculation: {
+                  code,
+                  result: evalRes.result,
+                  formattedResult: evalRes.formattedResult,
+                  logs: evalRes.logs,
+                  executionTimeMs: evalRes.executionTimeMs,
+                },
+              },
+            };
+          } else {
+            return {
+              result: `Calculation error: ${evalRes.error}`,
+              data: {
+                calculation: {
+                  code,
+                  error: evalRes.error,
+                  logs: evalRes.logs,
+                  executionTimeMs: evalRes.executionTimeMs,
+                },
+              },
+            };
+          }
+        }
+        return { result: 'Calculation sandbox service unavailable.' };
+      }
+
+      case 'get_voice_briefing': {
+        if (ctx.briefingService) {
+          const type = args.type as ('morning' | 'evening' | 'general') | undefined;
+          const loc = args.location as string | undefined;
+          const briefing = await ctx.briefingService.generateBriefing(type, loc);
+          return {
+            result: briefing.displayText,
+            data: {
+              briefing,
+            },
+          };
+        }
+        return { result: 'Voice briefing service unavailable.' };
       }
 
       default:
