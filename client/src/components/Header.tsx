@@ -1,4 +1,4 @@
-import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Plus, Activity, BookOpen, Radio } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Plus, Activity, BookOpen } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
@@ -8,18 +8,16 @@ interface HeaderProps {
   onToggleTts: () => void;
   onOpenRoutines: () => void;
   onOpenKnowledge?: () => void;
-  onTriggerBriefing?: () => void;
   onNewChat?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   health,
   ttsEnabled,
-  isSpeaking,
+  isSpeaking: _isSpeaking,
   onToggleTts,
   onOpenRoutines,
   onOpenKnowledge,
-  onTriggerBriefing,
   onNewChat,
 }) => {
   return (
@@ -222,43 +220,6 @@ export const Header: React.FC<HeaderProps> = ({
           <PlayCircle size={13} color="#f59e0b" />
           <span>ROUTINES</span>
         </button>
-
-        {/* Live Voice Briefing Button */}
-        {onTriggerBriefing && (
-          <button
-            onClick={onTriggerBriefing}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 11px',
-              borderRadius: '8px',
-              background: isSpeaking ? 'rgba(0, 242, 254, 0.2)' : 'rgba(56, 189, 248, 0.08)',
-              border: isSpeaking ? '1px solid #00f2fe' : '1px solid rgba(56, 189, 248, 0.25)',
-              fontSize: '11px',
-              fontWeight: 600,
-              fontFamily: 'var(--font-mono)',
-              color: isSpeaking ? '#00f2fe' : '#38bdf8',
-              cursor: 'pointer',
-              boxShadow: isSpeaking ? '0 0 14px rgba(0, 242, 254, 0.4)' : 'none',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = isSpeaking ? 'rgba(0, 242, 254, 0.3)' : 'rgba(56, 189, 248, 0.18)';
-              e.currentTarget.style.borderColor = '#00f2fe';
-              e.currentTarget.style.boxShadow = '0 0 12px rgba(0, 242, 254, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = isSpeaking ? 'rgba(0, 242, 254, 0.2)' : 'rgba(56, 189, 248, 0.08)';
-              e.currentTarget.style.borderColor = isSpeaking ? '#00f2fe' : 'rgba(56, 189, 248, 0.25)';
-              e.currentTarget.style.boxShadow = isSpeaking ? '0 0 14px rgba(0, 242, 254, 0.4)' : 'none';
-            }}
-            title={isSpeaking ? 'Speaking Live Briefing (Click to stop)' : 'Trigger & Speak Live Intelligence Briefing'}
-          >
-            <Radio size={13} color={isSpeaking ? '#00f2fe' : '#38bdf8'} />
-            <span>{isSpeaking ? 'SPEAKING' : 'BRIEFING'}</span>
-          </button>
-        )}
 
         {/* External Model Node Monitor Link */}
         <a

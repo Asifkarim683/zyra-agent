@@ -277,14 +277,30 @@ export function useVoice(onSpeechResult: (text: string) => void) {
       playbackWatchdogRef.current = setTimeout(advanceOnce, 18000);
 
       audio.play().catch((err) => {
+        if (err.name === 'NotAllowedError') {
+          console.warn('[useVoice] Audio autoplay prevented by browser policy. Will play on first user interaction.');
+          const unlock = () => {
+            window.removeEventListener('click', unlock, true);
+            window.removeEventListener('keydown', unlock, true);
+            window.removeEventListener('touchstart', unlock, true);
+            audio.play().catch((e) => {
+              console.warn('[useVoice] Playback error after gesture:', e);
+              advanceOnce();
+            });
+          };
+          window.addEventListener('click', unlock, { once: true, capture: true });
+          window.addEventListener('keydown', unlock, { once: true, capture: true });
+          window.addEventListener('touchstart', unlock, { once: true, capture: true });
+          return;
+        }
         console.warn('Audio playback error:', err);
         advanceOnce();
       });
     } else {
-      // If neural audio was unavailable for this chunk, cleanly advance
-      finishAndAdvance();
+      // If neural audio was unavailable for this chunk, cleanly fallback to browser synthesis
+      speakWithBrowser(nextItem.text, finishAndAdvance);
     }
-  }, []);
+  }, [speakWithBrowser]);
 
   const queueSentence = useCallback(
     (sentence: string) => {
@@ -313,7 +329,7 @@ export function useVoice(onSpeechResult: (text: string) => void) {
   );
 
   const speak = useCallback(
-    async (text: string) => {
+    (text: string) => {
       if (!ttsEnabled) return;
       stopSpeaking();
       const cleaned = text
@@ -323,17 +339,16 @@ export function useVoice(onSpeechResult: (text: string) => void) {
         .trim();
       if (!cleaned) return;
 
-      const blobUrl = await fetchAudioBlob(cleaned, 1);
-      if (blobUrl) {
-        queueSentence(cleaned);
-      } else {
-        // Fall back to matching British female browser synthesis only when completely offline
-        speakWithBrowser(cleaned, () => {
-          setIsSpeaking(false);
-        });
+      // Split into clean sentence boundaries so each sentence buffers and delivers smoothly
+      const sentences = cleaned.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [cleaned];
+      for (const s of sentences) {
+        const trimmed = s.trim();
+        if (trimmed) {
+          queueSentence(trimmed);
+        }
       }
     },
-    [ttsEnabled, stopSpeaking, queueSentence, speakWithBrowser]
+    [ttsEnabled, stopSpeaking, queueSentence]
   );
 
   return {

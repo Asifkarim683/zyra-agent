@@ -348,84 +348,38 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const startupBriefingTriggeredRef = useRef(false);
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
 
   useEffect(() => {
     // Proactive Voice Startup Briefing:
     // Dynamically generate and speak briefing on startup of application WITHOUT writing in chat.
-    if (startupBriefingTriggeredRef.current) return;
-    startupBriefingTriggeredRef.current = true;
-
     const runStartupBriefing = async () => {
       try {
+        console.log('[Zyra] Fetching dynamic startup voice briefing...');
         const res = await fetch('/api/v1/briefings/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ forNotification: false }),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn('[Zyra] Failed to generate startup briefing, HTTP', res.status);
+          return;
+        }
         const data: BriefingData = await res.json();
 
-        if (data.voiceText && voice.ttsEnabled) {
+        if (data.voiceText && voiceRef.current.ttsEnabled) {
           const speech = cleanForSpeech(data.voiceText);
-
-          // Attempt immediate playback
-          voice.speak(speech);
-
-          // Browsers enforce autoplay gesture policies on fresh un-interacted page loads.
-          // Attach a one-time window interaction listener to guarantee it speaks on first click/key if blocked.
-          let hasPlayed = false;
-          const unlockAutoplay = () => {
-            if (hasPlayed) return;
-            hasPlayed = true;
-            window.removeEventListener('click', unlockAutoplay);
-            window.removeEventListener('keydown', unlockAutoplay);
-            if (!voice.isSpeaking) {
-              voice.speak(speech);
-            }
-          };
-
-          window.addEventListener('click', unlockAutoplay, { once: true });
-          window.addEventListener('keydown', unlockAutoplay, { once: true });
+          console.log('[Zyra] Speaking dynamic startup briefing:', speech);
+          voiceRef.current.speak(speech);
         }
       } catch (err) {
-        console.warn('Failed to deliver startup voice briefing:', err);
+        console.warn('[Zyra] Failed to deliver startup voice briefing:', err);
       }
     };
 
-    // Small delay so audio context and components are stabilized
-    const timer = setTimeout(runStartupBriefing, 400);
-    return () => clearTimeout(timer);
-  }, [voice]);
-
-  const handleTriggerBriefing = useCallback(async () => {
-    try {
-      // Toggle off if currently speaking
-      if (voice.isSpeaking) {
-        voice.stopSpeaking();
-        return;
-      }
-
-      voice.stopSpeaking();
-      setIsLoading(true);
-      const res = await fetch('/api/v1/briefings/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forNotification: false }),
-      });
-      if (!res.ok) throw new Error('Failed to generate intelligence briefing');
-      const data: BriefingData = await res.json();
-      setIsLoading(false);
-
-      // Speak live briefing aloud WITHOUT writing in chat
-      if (voice.ttsEnabled && data.voiceText) {
-        voice.speak(cleanForSpeech(data.voiceText));
-      }
-    } catch (err: any) {
-      setIsLoading(false);
-      console.error('Briefing error:', err);
-    }
-  }, [voice]);
+    runStartupBriefing();
+  }, []);
 
   const handleTriggerRoutine = async (id: string) => {
     const res = await fetch(`/api/v1/routines/${id}/trigger`, { method: 'POST' });
@@ -465,7 +419,6 @@ export function App() {
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
         onOpenKnowledge={() => setIsKnowledgeOpen(true)}
-        onTriggerBriefing={handleTriggerBriefing}
         onNewChat={handleNewChat}
       />
 
