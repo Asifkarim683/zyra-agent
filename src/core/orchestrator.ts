@@ -10,6 +10,7 @@ import type { SandboxService } from '../services/sandbox-service.js';
 import type { BriefingService } from '../services/briefing-service.js';
 import { PipelineTracer, type PipelineTrace } from './pipeline-tracer.js';
 import { TOOL_SCHEMAS, executeTool, getToolsForPrompt } from './tools.js';
+import { TypoCorrector } from './typo-corrector.js';
 import type { SkillResult, SkillContext, IntentMatch, ConversationTurn } from '../types/index.js';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
@@ -86,7 +87,13 @@ export class Orchestrator {
       length: input.length,
     });
     const sanitizedInput = input.trim();
-    tracer.endNode('node_ingest', { sanitized: sanitizedInput, status: 'valid' });
+    const typoReport = TypoCorrector.correctWithDetails(sanitizedInput);
+    tracer.endNode('node_ingest', {
+      sanitized: sanitizedInput,
+      corrected: typoReport.corrected,
+      typoDetected: typoReport.hasCorrections,
+      status: 'valid',
+    });
 
     // ── Node 2: Context & Memory Retrieval Node ────────────────────────────
     tracer.startNode('node_context', 'Memory & Context Retrieval', 'memory');

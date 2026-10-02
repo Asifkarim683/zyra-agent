@@ -10,6 +10,7 @@ import {
 } from '../src/container.js';
 import { isPrivateIp, WebService } from '../src/services/web-service.js';
 import { getToolsForPrompt } from '../src/core/tools.js';
+import { TypoCorrector } from '../src/core/typo-corrector.js';
 import type { Server } from 'http';
 
 async function runTests() {
@@ -68,6 +69,15 @@ async function runTests() {
     { input: 'how are you', expectedSkill: 'system-info', expectedIntent: 'how_are_you' },
     { input: 'brief me', expectedSkill: 'briefing', expectedIntent: 'daily_briefing' },
     { input: 'morning briefing', expectedSkill: 'briefing', expectedIntent: 'morning_briefing' },
+    // Cross-model typo tolerance test cases
+    { input: 'what is the weathr in London', expectedSkill: 'weather', expectedIntent: 'check_weather' },
+    { input: 'set an alrm for 7:00 AM', expectedSkill: 'alarm', expectedIntent: 'set_alarm' },
+    { input: 'remnd me to call mom', expectedSkill: 'alarm', expectedIntent: 'set_reminder' },
+    { input: 'what tiem is it in Tokyo', expectedSkill: 'time', expectedIntent: 'get_time' },
+    { input: 'ad tast buy groceries', expectedSkill: 'todo', expectedIntent: 'add_task' },
+    { input: 'rember that my favorite movie is Interstellar', expectedSkill: 'memory', expectedIntent: 'remember_fact' },
+    { input: 'breif me', expectedSkill: 'briefing', expectedIntent: 'daily_briefing' },
+    { input: 'paws music', expectedSkill: 'music', expectedIntent: 'pause_music' },
     // Conversational utterances with polite preambles and natural framing
     { input: 'Hey Zyra, could you please wake me up at 7am tomorrow?', expectedSkill: 'alarm', expectedIntent: 'set_alarm' },
     { input: 'Can you kindly add review pull request to my tasks?', expectedSkill: 'todo', expectedIntent: 'add_task' },
@@ -614,6 +624,50 @@ async function runTests() {
         'MusicSkill response does not repeat the query twice'
       );
     }
+
+    // 13. Test Universal Typo Corrector & Cross-Model Healing
+    console.log('\n[13] Testing Universal Typo Corrector & Cross-Model Healing...');
+    assert(TypoCorrector.correct('weathr') === 'weather', 'TypoCorrector heals "weathr" -> "weather"');
+    assert(TypoCorrector.correct('alrm') === 'alarm', 'TypoCorrector heals "alrm" -> "alarm"');
+    assert(TypoCorrector.correct('rember') === 'remember', 'TypoCorrector heals "rember" -> "remember"');
+    assert(TypoCorrector.correct('breif') === 'brief', 'TypoCorrector heals "breif" -> "brief"');
+    assert(TypoCorrector.correct('calulate') === 'calculate', 'TypoCorrector heals "calulate" -> "calculate"');
+    assert(TypoCorrector.correct('tiem') === 'time', 'TypoCorrector heals "tiem" -> "time"');
+    assert(TypoCorrector.correct('paws') === 'pause', 'TypoCorrector heals "paws" -> "pause"');
+    assert(TypoCorrector.correct('ad tast') === 'add task', 'TypoCorrector heals "ad tast" -> "add task"');
+    assert(
+      TypoCorrector.correct('write me a poem about quantum gravity') === 'write me a poem about quantum gravity',
+      'TypoCorrector preserves non-keyword prose'
+    );
+
+    // Test orchestrator execution with typos across different skills
+    const typoWeather = await orchestrator.process('what is the weathr in London', convId);
+    assert(typoWeather.provider === 'skill', 'Orchestrator routed typo weather prompt to skill');
+    assert(typoWeather.response.includes('London'), 'Typo weather prompt returned weather for London');
+
+    const typoTime = await orchestrator.process('what tiem is it in Tokyo', convId);
+    assert(typoTime.provider === 'skill', 'Orchestrator routed typo time prompt to skill');
+    assert(typoTime.response.includes('Tokyo'), 'Typo time prompt returned time for Tokyo');
+
+    const typoMemory = await orchestrator.process('rember that my favorite dessert is tiramisu', convId);
+    assert(typoMemory.provider === 'skill', 'Orchestrator routed typo memory prompt to skill');
+    assert(
+      typoMemory.response.includes('tiramisu') || typoMemory.response.includes('favorite') || typoMemory.response.includes('Eren'),
+      'Typo memory prompt saved fact'
+    );
+
+    // Test tool gating with typos
+    const typoMathTools = getToolsForPrompt('calulate 50 * 20');
+    assert(
+      typoMathTools.some((t) => t.function.name === 'execute_calculation_or_code'),
+      'Tool gating finds math tool on typo prompt'
+    );
+
+    const typoWeatherTools = getToolsForPrompt('whats the weathr in Berlin');
+    assert(
+      typoWeatherTools.some((t) => t.function.name === 'get_weather'),
+      'Tool gating finds weather tool on typo prompt'
+    );
 
   } finally {
     server.close();

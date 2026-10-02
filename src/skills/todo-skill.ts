@@ -29,6 +29,11 @@ export class TodoSkill extends BaseSkill {
       extractParams: (match) => ({ title: match[1].trim() }),
     },
     {
+      pattern: /^(?:add (?:a )?(?:new )?(?:task|todo|note)|new (?:task|todo|note))\s+(.*)$/i,
+      intent: 'add_task',
+      extractParams: (match) => ({ title: match[1].trim() }),
+    },
+    {
       pattern: /^(?:what are my (?:tasks?|todos?|notes?)|show (?:my )?(?:tasks?|todos?|todo list|notes?)|list (?:my )?(?:tasks?|todos?|notes?)|my (?:tasks?|todos?))$/i,
       intent: 'list_tasks',
     },

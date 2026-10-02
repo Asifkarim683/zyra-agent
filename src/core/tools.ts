@@ -4,6 +4,7 @@ import type { RAGService } from '../services/rag-service.js';
 import type { SandboxService } from '../services/sandbox-service.js';
 import type { BriefingService } from '../services/briefing-service.js';
 import type { SkillRegistry } from './skill-registry.js';
+import { TypoCorrector } from './typo-corrector.js';
 import { logger } from '../config/logger.js';
 import { config } from '../config/index.js';
 
@@ -200,7 +201,8 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
  * eliminating 800ms+ prompt eval overhead and preventing false-positive tool calls.
  */
 export function getToolsForPrompt(prompt: string): ToolDefinition[] {
-  const p = prompt.toLowerCase();
+  const corrected = TypoCorrector.correct(prompt);
+  const p = `${prompt} ${corrected}`.toLowerCase();
 
   // Explicit internet / search requests & live real-time queries
   const isSearchRequested = /\b(search\s+(?:the\s+web|online|internet|google)|search\s+for|look\s*up\s+online|browse\s+the\s+web|latest\s+news|breaking\s+news|recent\s+headlines?|today's\s+news|current\s+events|who\s+won|stock\s+price|bitcoin|crypto|current\s+prime\s+minister|current\s+president|what\s+happened\s+today|news\s+about|news\s+on)\b/i.test(p);

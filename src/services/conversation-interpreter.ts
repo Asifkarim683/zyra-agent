@@ -1,6 +1,7 @@
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
 import { FactInterpreter } from './fact-interpreter.js';
+import { TypoCorrector } from '../core/typo-corrector.js';
 import type { DatabaseService } from './database.js';
 import type { LLMService } from './llm/llm-service.js';
 
@@ -80,7 +81,8 @@ export class ConversationInterpreter {
     dbService?: DatabaseService
   ): InterpretedUtterance {
     const raw = rawInput.trim();
-    const { cleaned, removedMarkers } = this.stripConversationalPreamble(raw);
+    const corrected = TypoCorrector.correct(raw);
+    const { cleaned, removedMarkers } = this.stripConversationalPreamble(corrected);
 
     const contextHints = {
       hasLocation: false,
@@ -311,7 +313,8 @@ export class ConversationInterpreter {
     llmService?: LLMService
   ): Promise<InterpretedUtterance> {
     const raw = rawInput.trim();
-    const { cleaned, removedMarkers } = this.stripConversationalPreamble(raw);
+    const corrected = TypoCorrector.correct(raw);
+    const { cleaned, removedMarkers } = this.stripConversationalPreamble(corrected);
 
     const contextHints = {
       hasLocation: false,
@@ -1002,7 +1005,9 @@ export class ConversationInterpreter {
       };
     }
 
-    const addMatchB = cleaned.match(/^(?:new (?:task|todo|note):?|(?:task|todo|note):)\s+(.*)$/i);
+    const addMatchB = cleaned.match(
+      /^(?:add (?:a )?(?:new )?(?:task|todo|note)|new (?:task|todo|note):?|(?:task|todo|note):)\s+(.*)$/i
+    );
     if (addMatchB) {
       const title = addMatchB[1].trim();
       return {

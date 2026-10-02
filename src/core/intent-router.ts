@@ -1,6 +1,7 @@
 import { SkillRegistry } from './skill-registry.js';
 import type { IntentMatch } from '../types/index.js';
 import { ConversationInterpreter } from '../services/conversation-interpreter.js';
+import { TypoCorrector } from './typo-corrector.js';
 import type { DatabaseService } from '../services/database.js';
 import { config } from '../config/index.js';
 
@@ -232,10 +233,12 @@ export class IntentRouter {
      */
     public route(input: string): IntentMatch | null {
         const rawInput = input.trim();
-        const cleaned = this.cleanInput(input);
+        const correctedInput = TypoCorrector.correct(rawInput);
+        const cleaned = this.cleanInput(correctedInput);
+        const rawCleaned = this.cleanInput(rawInput);
 
         // 1. Universal Conversation Interpreter (natural language entity & intent understanding)
-        const interpreted = ConversationInterpreter.interpretSync(rawInput, config.ownerName, this.dbService);
+        const interpreted = ConversationInterpreter.interpretSync(correctedInput, config.ownerName, this.dbService);
         if (interpreted && interpreted.confidence >= 0.8 && interpreted.skill) {
             return {
                 intent: interpreted.intent,
@@ -246,9 +249,13 @@ export class IntentRouter {
             };
         }
 
-        // 2. Check built-in patterns against both cleaned and raw input
+        // 2. Check built-in patterns against cleaned, corrected, and raw input
         for (const bp of this.builtInPatterns) {
-            const match = cleaned.match(bp.pattern) || rawInput.match(bp.pattern);
+            const match =
+                cleaned.match(bp.pattern) ||
+                correctedInput.match(bp.pattern) ||
+                rawCleaned.match(bp.pattern) ||
+                rawInput.match(bp.pattern);
             if (match) {
                 return {
                     intent: bp.intent,
@@ -260,12 +267,16 @@ export class IntentRouter {
             }
         }
 
-        // 2. Check skill registry patterns
+        // 3. Check skill registry patterns
         for (const skillName of this.registry.list()) {
             const skill = this.registry.get(skillName);
             if (skill && skill.patterns) {
                 for (const sp of skill.patterns) {
-                    const match = cleaned.match(sp.pattern) || rawInput.match(sp.pattern);
+                    const match =
+                        cleaned.match(sp.pattern) ||
+                        correctedInput.match(sp.pattern) ||
+                        rawCleaned.match(sp.pattern) ||
+                        rawInput.match(sp.pattern);
                     if (match) {
                         return {
                             intent: sp.intent,
