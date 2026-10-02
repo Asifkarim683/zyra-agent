@@ -58,8 +58,8 @@ export class BriefingService {
     const briefingType: 'morning' | 'evening' | 'general' =
       type || (currentHour < 12 ? 'morning' : currentHour >= 18 ? 'evening' : 'general');
 
-    // 1. Time & Greeting
-    const greeting = this.getGreeting(currentHour);
+    // 1. Time & Greeting (Dynamic contextual phrasing)
+    const greetingObj = this.getGreeting(currentHour);
     const dateFormatted = now.toLocaleDateString('en-GB', {
       weekday: 'long',
       day: 'numeric',
@@ -77,23 +77,16 @@ export class BriefingService {
     // 3. Deduplicated Tasks (maximum 3 unique items)
     const tasks = this.getPendingTasks();
 
-    // 4. Concise Voice Text (Designed specifically for clean TTS audio playback)
+    // 4. Dynamic Spoken Voice Text (Designed specifically for clean, natural British neural speech)
     const voiceParts: string[] = [];
-    voiceParts.push(`${greeting}.`);
+    voiceParts.push(greetingObj.voice);
 
     if (weatherData) {
       voiceParts.push(weatherData.spoken);
     }
 
-    if (tasks.length > 0) {
-      if (tasks.length === 1) {
-        voiceParts.push(`You have one task pending: ${tasks[0]}.`);
-      } else {
-        voiceParts.push(`You have ${tasks.length} tasks on your agenda: ${tasks.join(', and ')}.`);
-      }
-    } else {
-      voiceParts.push('Your agenda is completely clear.');
-    }
+    voiceParts.push(this.formatSpokenTasks(tasks));
+    voiceParts.push(this.getDynamicSignoff());
 
     const voiceText = voiceParts.join(' ');
 
@@ -107,7 +100,7 @@ export class BriefingService {
 
     const displayLines: string[] = [
       `### ${headerTitle}`,
-      `*${greeting} — ${timeFormatted} | ${dateFormatted}*`,
+      `*${greetingObj.display} — ${timeFormatted} | ${dateFormatted}*`,
       '',
     ];
 
@@ -173,12 +166,79 @@ export class BriefingService {
     }
   }
 
-  private getGreeting(hour: number): string {
+  private getGreeting(hour: number): { display: string; voice: string } {
     const name = config.ownerName || 'Eren';
-    if (hour >= 5 && hour < 12) return `Good morning, ${name}`;
-    if (hour >= 12 && hour < 17) return `Good afternoon, ${name}`;
-    if (hour >= 17 && hour < 22) return `Good evening, ${name}`;
-    return `Hello, ${name}`;
+    const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+    if (hour >= 5 && hour < 12) {
+      return {
+        display: `Good morning, ${name}`,
+        voice: pick([
+          `Good morning, ${name}. Welcome back.`,
+          `Good morning, ${name}. Here is your live status briefing.`,
+          `Good morning, ${name}. Hope you've had a restful start to the day.`,
+        ]),
+      };
+    }
+    if (hour >= 12 && hour < 17) {
+      return {
+        display: `Good afternoon, ${name}`,
+        voice: pick([
+          `Good afternoon, ${name}. Here is your midday status check.`,
+          `Good afternoon, ${name}. Hope your day is going smoothly.`,
+          `Good afternoon, ${name}.`,
+        ]),
+      };
+    }
+    if (hour >= 17 && hour < 22) {
+      return {
+        display: `Good evening, ${name}`,
+        voice: pick([
+          `Good evening, ${name}. Here is your evening intelligence briefing.`,
+          `Good evening, ${name}. Hope your day was productive.`,
+          `Good evening, ${name}.`,
+        ]),
+      };
+    }
+    return {
+      display: `Hello, ${name}`,
+      voice: pick([
+        `Hello, ${name}. Working into the late hours tonight?`,
+        `Good evening, ${name}. Still at the console?`,
+        `Hello, ${name}.`,
+      ]),
+    };
+  }
+
+  private formatSpokenTasks(tasks: string[]): string {
+    const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+    if (tasks.length === 0) {
+      return pick([
+        'Your agenda is completely clear today, with no pending tasks.',
+        'All clear on your agenda for today.',
+        'You have no pending tasks on your checklist.',
+      ]);
+    }
+    if (tasks.length === 1) {
+      return pick([
+        `You have one task pending on your agenda: ${tasks[0]}.`,
+        `On your agenda today, you have one pending item: ${tasks[0]}.`,
+      ]);
+    }
+    return pick([
+      `You have ${tasks.length} tasks on your agenda: ${tasks.join(', and ')}.`,
+      `On your checklist, there are ${tasks.length} pending items: ${tasks.join(', and ')}.`,
+    ]);
+  }
+
+  private getDynamicSignoff(): string {
+    const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+    return pick([
+      'All neural systems are synchronized and standing by.',
+      'I am standing by whenever you need me.',
+      'Ready whenever you are.',
+      'Standing by for your command.',
+    ]);
   }
 
   private getSavedCity(): string | undefined {

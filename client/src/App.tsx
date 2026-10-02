@@ -331,22 +331,7 @@ export function App() {
             body: JSON.stringify({ id: notif.id }),
           }).catch(() => {});
 
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === notif.id)) return prev;
-            return [
-              ...prev,
-              {
-                id: notif.id,
-                role: 'assistant',
-                content: notif.displayText,
-                timestamp: new Date(notif.createdAt),
-                provider: 'scheduler-briefing',
-                data: { briefing: notif },
-              },
-            ];
-          });
-
-          // Only speak proactive notifications if user is not currently in an active query
+          // Speak proactive notifications aloud WITHOUT writing in chat
           if (voice.ttsEnabled && notif.voiceText && !isLoading) {
             voice.speak(cleanForSpeech(notif.voiceText));
           }
@@ -363,8 +348,64 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
+  const startupBriefingTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    // Proactive Voice Startup Briefing:
+    // Dynamically generate and speak briefing on startup of application WITHOUT writing in chat.
+    if (startupBriefingTriggeredRef.current) return;
+    startupBriefingTriggeredRef.current = true;
+
+    const runStartupBriefing = async () => {
+      try {
+        const res = await fetch('/api/v1/briefings/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ forNotification: false }),
+        });
+        if (!res.ok) return;
+        const data: BriefingData = await res.json();
+
+        if (data.voiceText && voice.ttsEnabled) {
+          const speech = cleanForSpeech(data.voiceText);
+
+          // Attempt immediate playback
+          voice.speak(speech);
+
+          // Browsers enforce autoplay gesture policies on fresh un-interacted page loads.
+          // Attach a one-time window interaction listener to guarantee it speaks on first click/key if blocked.
+          let hasPlayed = false;
+          const unlockAutoplay = () => {
+            if (hasPlayed) return;
+            hasPlayed = true;
+            window.removeEventListener('click', unlockAutoplay);
+            window.removeEventListener('keydown', unlockAutoplay);
+            if (!voice.isSpeaking) {
+              voice.speak(speech);
+            }
+          };
+
+          window.addEventListener('click', unlockAutoplay, { once: true });
+          window.addEventListener('keydown', unlockAutoplay, { once: true });
+        }
+      } catch (err) {
+        console.warn('Failed to deliver startup voice briefing:', err);
+      }
+    };
+
+    // Small delay so audio context and components are stabilized
+    const timer = setTimeout(runStartupBriefing, 400);
+    return () => clearTimeout(timer);
+  }, [voice]);
+
   const handleTriggerBriefing = useCallback(async () => {
     try {
+      // Toggle off if currently speaking
+      if (voice.isSpeaking) {
+        voice.stopSpeaking();
+        return;
+      }
+
       voice.stopSpeaking();
       setIsLoading(true);
       const res = await fetch('/api/v1/briefings/generate', {
@@ -374,21 +415,9 @@ export function App() {
       });
       if (!res.ok) throw new Error('Failed to generate intelligence briefing');
       const data: BriefingData = await res.json();
-
-      const assistantMessage: ChatMessage = {
-        id: data.id || crypto.randomUUID(),
-        role: 'assistant',
-        content: data.displayText,
-        timestamp: new Date(),
-        provider: 'briefing-engine',
-        data: {
-          briefing: data,
-        },
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
       setIsLoading(false);
 
+      // Speak live briefing aloud WITHOUT writing in chat
       if (voice.ttsEnabled && data.voiceText) {
         voice.speak(cleanForSpeech(data.voiceText));
       }
@@ -421,7 +450,7 @@ export function App() {
       const briefingResult = data.results.find((r: any) => r.data?.briefing)?.data?.briefing;
       const textToSpeak = briefingResult?.voiceText || data.results.find((r: any) => r.response)?.response;
       if (textToSpeak && voice.ttsEnabled) {
-        voice.speak(textToSpeak);
+        voice.speak(cleanForSpeech(textToSpeak));
       }
     }
     return data;
@@ -432,6 +461,7 @@ export function App() {
       <Header
         health={health}
         ttsEnabled={voice.ttsEnabled}
+        isSpeaking={voice.isSpeaking}
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
         onOpenKnowledge={() => setIsKnowledgeOpen(true)}

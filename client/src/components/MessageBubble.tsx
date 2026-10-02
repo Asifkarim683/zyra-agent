@@ -118,6 +118,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               ? '0 4px 20px rgba(79, 70, 229, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
               : '0 4px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(56, 189, 248, 0.05), inset 0 1px 0 rgba(56, 189, 248, 0.15)',
             wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
           }}
         >
           {/* Subtle top indicator bar */}

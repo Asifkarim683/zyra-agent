@@ -4,6 +4,7 @@ import type { SystemHealth } from '../types';
 interface HeaderProps {
   health: SystemHealth | null;
   ttsEnabled: boolean;
+  isSpeaking?: boolean;
   onToggleTts: () => void;
   onOpenRoutines: () => void;
   onOpenKnowledge?: () => void;
@@ -14,6 +15,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   health,
   ttsEnabled,
+  isSpeaking,
   onToggleTts,
   onOpenRoutines,
   onOpenKnowledge,
@@ -231,29 +233,30 @@ export const Header: React.FC<HeaderProps> = ({
               gap: '5px',
               padding: '6px 11px',
               borderRadius: '8px',
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              background: isSpeaking ? 'rgba(0, 242, 254, 0.2)' : 'rgba(56, 189, 248, 0.08)',
+              border: isSpeaking ? '1px solid #00f2fe' : '1px solid rgba(56, 189, 248, 0.25)',
               fontSize: '11px',
-              fontWeight: 500,
+              fontWeight: 600,
               fontFamily: 'var(--font-mono)',
-              color: '#38bdf8',
+              color: isSpeaking ? '#00f2fe' : '#38bdf8',
               cursor: 'pointer',
+              boxShadow: isSpeaking ? '0 0 14px rgba(0, 242, 254, 0.4)' : 'none',
               transition: 'all 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(56, 189, 248, 0.18)';
-              e.currentTarget.style.borderColor = '#38bdf8';
-              e.currentTarget.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.25)';
+              e.currentTarget.style.background = isSpeaking ? 'rgba(0, 242, 254, 0.3)' : 'rgba(56, 189, 248, 0.18)';
+              e.currentTarget.style.borderColor = '#00f2fe';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(0, 242, 254, 0.4)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(56, 189, 248, 0.08)';
-              e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.25)';
-              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.background = isSpeaking ? 'rgba(0, 242, 254, 0.2)' : 'rgba(56, 189, 248, 0.08)';
+              e.currentTarget.style.borderColor = isSpeaking ? '#00f2fe' : 'rgba(56, 189, 248, 0.25)';
+              e.currentTarget.style.boxShadow = isSpeaking ? '0 0 14px rgba(0, 242, 254, 0.4)' : 'none';
             }}
-            title="Generate & Speak Live Intelligence Briefing"
+            title={isSpeaking ? 'Speaking Live Briefing (Click to stop)' : 'Trigger & Speak Live Intelligence Briefing'}
           >
-            <Radio size={13} color="#38bdf8" />
-            <span>BRIEFING</span>
+            <Radio size={13} color={isSpeaking ? '#00f2fe' : '#38bdf8'} />
+            <span>{isSpeaking ? 'SPEAKING' : 'BRIEFING'}</span>
           </button>
         )}
 
