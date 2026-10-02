@@ -22,6 +22,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isUser = message.role === 'user';
   const [status, setStatus] = useState<'pending' | 'confirmed' | 'cancelled' | 'error'>('pending');
   const [statusText, setStatusText] = useState<string>('');
+  const [showSpotifyWidget, setShowSpotifyWidget] = useState<boolean>(false);
 
   const handleConfirm = async () => {
     try {
@@ -535,6 +536,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             const track = message.data.music.track;
             const isThisTrack = Boolean(currentTrack && currentTrack.id === track.id);
             const isThisTrackPlaying = Boolean(isThisTrack && isMusicPlaying);
+            const isSpotify = track.platform === 'spotify';
+            const accentColor = isSpotify ? '#10b981' : '#38bdf8';
+            const accentLight = isSpotify ? '#34d399' : '#38bdf8';
 
             return (
               <div
@@ -544,10 +548,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   borderRadius: '12px',
                   background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%)',
                   border: isThisTrackPlaying
-                    ? '1px solid rgba(6, 182, 212, 0.6)'
-                    : '1px solid rgba(56, 189, 248, 0.25)',
+                    ? `1px solid ${isSpotify ? 'rgba(16, 185, 129, 0.6)' : 'rgba(6, 182, 212, 0.6)'}`
+                    : `1px solid ${isSpotify ? 'rgba(16, 185, 129, 0.3)' : 'rgba(56, 189, 248, 0.25)'}`,
                   boxShadow: isThisTrackPlaying
-                    ? '0 0 20px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                    ? `0 0 20px ${isSpotify ? 'rgba(16, 185, 129, 0.25)' : 'rgba(6, 182, 212, 0.25)'}, inset 0 1px 0 rgba(255, 255, 255, 0.1)`
                     : '0 4px 15px rgba(0, 0, 0, 0.4)',
                   display: 'flex',
                   flexDirection: 'column',
@@ -559,13 +563,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {/* Header Bar of the Music Card */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Music size={13} color={isThisTrackPlaying ? '#38bdf8' : '#94a3b8'} className={isThisTrackPlaying ? 'animate-pulse' : ''} />
+                    <Music size={13} color={isThisTrackPlaying ? accentLight : '#94a3b8'} className={isThisTrackPlaying ? 'animate-pulse' : ''} />
                     <span
                       style={{
                         fontSize: '10.5px',
                         fontFamily: 'monospace',
                         letterSpacing: '0.06em',
-                        color: isThisTrackPlaying ? '#38bdf8' : '#94a3b8',
+                        color: isThisTrackPlaying ? accentLight : '#94a3b8',
                         fontWeight: 700,
                         textTransform: 'uppercase',
                       }}
@@ -583,9 +587,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         textTransform: 'uppercase',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        background: track.platform === 'spotify' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        color: track.platform === 'spotify' ? '#34d399' : '#f87171',
-                        border: `1px solid ${track.platform === 'spotify' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                        background: isSpotify ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: isSpotify ? '#34d399' : '#f87171',
+                        border: `1px solid ${isSpotify ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
                       }}
                     >
                       {track.platform}
@@ -595,14 +599,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       href={track.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title={`Open in ${track.platform === 'spotify' ? 'Spotify' : 'YouTube'}`}
+                      title={`Open in ${isSpotify ? 'Spotify' : 'YouTube'}`}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         color: '#94a3b8',
                         transition: 'color 0.15s ease',
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = '#38bdf8'; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = accentLight; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = '#94a3b8'; }}
                     >
                       <ExternalLink size={12} />
@@ -622,7 +626,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         overflow: 'hidden',
                         flexShrink: 0,
                         position: 'relative',
-                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        border: `1px solid ${isSpotify ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.3)'}`,
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
                       }}
                     >
@@ -645,7 +649,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#38bdf8',
+                            color: accentLight,
                           }}
                         >
                           <Disc3 size={20} className={isThisTrackPlaying ? 'animate-spin' : ''} />
@@ -676,9 +680,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
                           marginTop: '1px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
                         }}
                       >
-                        {track.artist}
+                        <span>{track.artist}</span>
+                        {track.duration && (
+                          <span style={{ fontSize: '10px', color: '#64748b' }}>• {track.duration}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -691,7 +701,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         style={{
                           width: '2.5px',
                           borderRadius: '2px',
-                          background: isThisTrackPlaying ? '#38bdf8' : 'rgba(148, 163, 184, 0.3)',
+                          background: isThisTrackPlaying ? accentColor : 'rgba(148, 163, 184, 0.3)',
                           height: isThisTrackPlaying ? `${h}%` : '20%',
                           transition: 'height 0.2s ease',
                         }}
@@ -714,15 +724,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         height: '32px',
                         borderRadius: '50%',
                         background: isThisTrackPlaying
-                          ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
-                          : 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-                        border: '1px solid rgba(56, 189, 248, 0.5)',
+                          ? isSpotify
+                            ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                            : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                          : isSpotify
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                            : 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                        border: `1px solid ${isSpotify ? 'rgba(52, 211, 153, 0.5)' : 'rgba(56, 189, 248, 0.5)'}`,
                         color: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        boxShadow: '0 0 10px rgba(56, 189, 248, 0.35)',
+                        boxShadow: `0 0 10px ${isSpotify ? 'rgba(16, 185, 129, 0.35)' : 'rgba(56, 189, 248, 0.35)'}`,
                         transition: 'all 0.15s ease',
                       }}
                       title={isThisTrackPlaying ? 'Pause' : 'Play'}
@@ -755,6 +769,54 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Optional Expandable Official Spotify Player Widget */}
+                {isSpotify && track.embedUrl && (
+                  <div style={{ marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <button
+                        onClick={() => setShowSpotifyWidget((v) => !v)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#34d399',
+                          fontSize: '11px',
+                          fontFamily: 'monospace',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '2px 0',
+                          opacity: 0.9,
+                        }}
+                      >
+                        <span>{showSpotifyWidget ? '▲ Hide Spotify Widget' : '▼ Open Official Spotify Widget'}</span>
+                      </button>
+                    </div>
+
+                    {showSpotifyWidget && (
+                      <div
+                        style={{
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          height: '80px',
+                          background: '#000000',
+                        }}
+                      >
+                        <iframe
+                          src={track.embedUrl}
+                          width="100%"
+                          height="80"
+                          frameBorder="0"
+                          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                          loading="lazy"
+                          style={{ border: 0 }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}

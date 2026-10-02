@@ -43,6 +43,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   if (!currentTrack) return null;
 
+  // Stream URL: use audioFallbackUrl if present (e.g. for Spotify tracks to stream smoothly in background)
+  const activeStreamUrl = currentTrack.audioFallbackUrl || currentTrack.embedUrl;
+
   return (
     <div
       style={{
@@ -60,7 +63,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       <iframe
         ref={iframeRef}
         key={currentTrack.id}
-        src={currentTrack.embedUrl}
+        src={activeStreamUrl}
         title={currentTrack.title}
         width="320"
         height="200"

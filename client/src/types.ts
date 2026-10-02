@@ -130,6 +130,8 @@ export interface MusicTrack {
   url: string;
   embedUrl: string;
   duration?: string;
+  previewUrl?: string;
+  audioFallbackUrl?: string;
 }
 
 export interface MusicPlayerState {

@@ -549,6 +549,25 @@ async function runTests() {
     assert(musicControlRes.status === 200, 'POST /api/v1/music/control returns 200');
     assert(musicControlJson.state.isPlaying === false, 'Music player state updated to paused');
 
+    // Test Spotify Search & Playback
+    const spotifySearchRes = await fetch(`http://localhost:${testPort}/api/v1/music/search?q=shape+of+you&platform=spotify`);
+    const spotifySearchJson = await spotifySearchRes.json();
+    assert(spotifySearchRes.status === 200, 'GET /api/v1/music/search (spotify) returns 200');
+    assert(Array.isArray(spotifySearchJson.tracks) && spotifySearchJson.tracks.length > 0, 'Spotify returned search results');
+    assert(spotifySearchJson.tracks[0].platform === 'spotify', 'Spotify track has platform spotify');
+    assert(spotifySearchJson.tracks[0].embedUrl.includes('spotify'), 'Spotify track has valid embed URL');
+
+    const spotifyPlayRes = await fetch(`http://localhost:${testPort}/api/v1/music/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'Shape of You', platform: 'spotify' }),
+    });
+    const spotifyPlayJson = await spotifyPlayRes.json();
+    assert(spotifyPlayRes.status === 200, 'POST /api/v1/music/play (spotify) returns 200');
+    assert(spotifyPlayJson.track && spotifyPlayJson.track.platform === 'spotify', 'Spotify play sets Spotify track');
+    assert(spotifyPlayJson.track.audioFallbackUrl && spotifyPlayJson.track.audioFallbackUrl.includes('youtube'), 'Spotify track has audio fallback stream linked');
+    assert(spotifyPlayJson.state.isPlaying === true, 'Spotify player state set to isPlaying: true');
+
   } finally {
     server.close();
   }
