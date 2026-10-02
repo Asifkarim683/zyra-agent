@@ -13,8 +13,6 @@ export interface BriefingResult {
   metadata: {
     weather?: string;
     tasksCount: number;
-    gpuTemp?: number;
-    newsCount: number;
   };
 }
 
@@ -28,34 +26,31 @@ export interface BriefingNotification {
 }
 
 /**
- * Service to generate proactive and on-demand intelligent voice briefings.
- * Synthesizes time of day, live weather, pending tasks, hardware telemetry,
- * and top news into a seamless cybernetic voice report.
+ * Service to generate concise, focused voice briefings.
+ * Keeps only essential intelligence: greeting, weather, and deduplicated tasks.
  */
 export class BriefingService {
   private dbService?: DatabaseService;
-  private webService?: WebService;
-  private telemetryService?: TelemetryService;
   private pendingNotifications: BriefingNotification[] = [];
 
   constructor(
     dbService?: DatabaseService,
-    webService?: WebService,
-    telemetryService?: TelemetryService
+    _webService?: WebService,
+    _telemetryService?: TelemetryService
   ) {
     this.dbService = dbService;
-    this.webService = webService;
-    this.telemetryService = telemetryService;
   }
 
   /**
-   * Generates a live briefing for Eren.
+   * Generates a clean, essential briefing for Eren.
    * @param type Briefing category ('morning' | 'evening' | 'general')
-   * @param location Optional city name for weather (defaults to remembered city or London)
+   * @param location Optional city name for weather (defaults to saved city or London)
+   * @param forNotification If true, saves to notification queue for scheduled background delivery
    */
   public async generateBriefing(
     type?: 'morning' | 'evening' | 'general',
-    location?: string
+    location?: string,
+    forNotification = false
   ): Promise<BriefingResult> {
     const now = new Date();
     const currentHour = now.getHours();
@@ -68,71 +63,47 @@ export class BriefingService {
     const dateFormatted = now.toLocaleDateString('en-GB', {
       weekday: 'long',
       day: 'numeric',
-      month: 'long',
-      year: 'numeric',
+      month: 'short',
     });
     const timeFormatted = now.toLocaleTimeString('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
     });
 
-    // 2. Weather
+    // 2. Weather (fast & essential)
     const weatherCity = location || this.getSavedCity() || 'London';
     const weatherData = await this.getWeatherSummary(weatherCity);
 
-    // 3. To-Do Tasks
+    // 3. Deduplicated Tasks (maximum 3 unique items)
     const tasks = this.getPendingTasks();
 
-    // 4. Hardware Telemetry
-    const telemetrySummary = await this.getTelemetrySummary();
-
-    // 5. News Headlines (Quick 2 items)
-    const newsHeadlines = await this.getNewsSummary();
-
-    // 6. Build Voice Text (Spoken by Edge TTS - pure conversational speech, no asterisks/markdown)
-    const voiceSentences: string[] = [];
-    voiceSentences.push(`${greeting}. It is ${timeFormatted} on ${dateFormatted}.`);
+    // 4. Concise Voice Text (Designed specifically for clean TTS audio playback)
+    const voiceParts: string[] = [];
+    voiceParts.push(`${greeting}.`);
 
     if (weatherData) {
-      voiceSentences.push(weatherData.spoken);
+      voiceParts.push(weatherData.spoken);
     }
 
     if (tasks.length > 0) {
       if (tasks.length === 1) {
-        voiceSentences.push(`You have one pending item on your agenda: ${tasks[0]}.`);
+        voiceParts.push(`You have one task pending: ${tasks[0]}.`);
       } else {
-        const taskList = tasks.slice(0, 3).join(', and ');
-        voiceSentences.push(
-          `You have ${tasks.length} pending tasks on your agenda, including: ${taskList}.`
-        );
+        voiceParts.push(`You have ${tasks.length} tasks on your agenda: ${tasks.join(', and ')}.`);
       }
     } else {
-      voiceSentences.push('Your to-do list is completely clear right now.');
+      voiceParts.push('Your agenda is completely clear.');
     }
 
-    if (newsHeadlines.length > 0) {
-      voiceSentences.push(
-        `In top news headlines today: ${newsHeadlines.slice(0, 2).map((n) => n.cleanTitle).join('. In other developments: ')}.`
-      );
-    }
+    const voiceText = voiceParts.join(' ');
 
-    if (telemetrySummary?.spoken) {
-      voiceSentences.push(telemetrySummary.spoken);
-    }
-
-    voiceSentences.push(
-      'All cybernetic systems are operating at peak efficiency. Ready for your command, Eren.'
-    );
-
-    const voiceText = voiceSentences.join(' ');
-
-    // 7. Build Display Text (Rich Markdown for UI Chat Bubble)
+    // 5. Clean, compact Markdown for UI
     const headerTitle =
       briefingType === 'morning'
         ? '☀️ Morning Briefing'
         : briefingType === 'evening'
         ? '🌙 Evening Briefing'
-        : '🎙️ Zyra Intelligence Briefing';
+        : '🎙️ Daily Briefing';
 
     const displayLines: string[] = [
       `### ${headerTitle}`,
@@ -141,34 +112,14 @@ export class BriefingService {
     ];
 
     if (weatherData) {
-      displayLines.push(`**🌦️ Weather (${weatherCity})**`);
-      displayLines.push(`• ${weatherData.display}`);
-      displayLines.push('');
+      displayLines.push(`• **Weather:** ${weatherData.display}`);
     }
 
-    displayLines.push(`**📋 Agenda & Tasks**`);
     if (tasks.length > 0) {
-      tasks.forEach((t) => displayLines.push(`• ${t}`));
+      displayLines.push(`• **Agenda:** ${tasks.length} task${tasks.length > 1 ? 's' : ''} (${tasks.join(', ')})`);
     } else {
-      displayLines.push(`• *No pending tasks. All clear.*`);
+      displayLines.push(`• **Agenda:** *All clear for today*`);
     }
-    displayLines.push('');
-
-    if (newsHeadlines.length > 0) {
-      displayLines.push(`**🌐 Top World & Tech Headlines**`);
-      newsHeadlines.slice(0, 3).forEach((n) => {
-        displayLines.push(`• [${n.cleanTitle}](${n.url})`);
-      });
-      displayLines.push('');
-    }
-
-    if (telemetrySummary?.display) {
-      displayLines.push(`**⚡ System & GPU Telemetry**`);
-      displayLines.push(`• ${telemetrySummary.display}`);
-      displayLines.push('');
-    }
-
-    displayLines.push(`> *${config.assistantName} Neural Engine standing by.*`);
 
     const displayText = displayLines.join('\n');
     const resultId = `briefing-${Date.now()}`;
@@ -182,27 +133,26 @@ export class BriefingService {
       metadata: {
         weather: weatherData?.display,
         tasksCount: tasks.length,
-        gpuTemp: telemetrySummary?.gpuTemp,
-        newsCount: newsHeadlines.length,
       },
     };
 
-    // Store in notification queue for proactive delivery
-    this.pendingNotifications.push({
-      id: resultId,
-      type: briefingType,
-      voiceText,
-      displayText,
-      createdAt: now.toISOString(),
-      delivered: false,
-    });
+    // Only queue if explicitly generated for background scheduled notifications
+    if (forNotification) {
+      this.pendingNotifications.push({
+        id: resultId,
+        type: briefingType,
+        voiceText,
+        displayText,
+        createdAt: now.toISOString(),
+        delivered: false,
+      });
 
-    // Keep queue at max 10
-    if (this.pendingNotifications.length > 10) {
-      this.pendingNotifications.shift();
+      if (this.pendingNotifications.length > 5) {
+        this.pendingNotifications.shift();
+      }
     }
 
-    logger.info(`Generated ${briefingType} voice briefing (id: ${resultId})`);
+    logger.info(`Generated clean ${briefingType} briefing (id: ${resultId})`);
     return briefingResult;
   }
 
@@ -228,7 +178,7 @@ export class BriefingService {
     if (hour >= 5 && hour < 12) return `Good morning, ${name}`;
     if (hour >= 12 && hour < 17) return `Good afternoon, ${name}`;
     if (hour >= 17 && hour < 22) return `Good evening, ${name}`;
-    return `Hello ${name}, working into the late hours`;
+    return `Hello, ${name}`;
   }
 
   private getSavedCity(): string | undefined {
@@ -246,11 +196,23 @@ export class BriefingService {
     }
   }
 
+  /**
+   * Returns up to 3 distinct, deduplicated pending tasks.
+   */
   private getPendingTasks(): string[] {
     if (!this.dbService) return [];
     try {
-      const allTasks = this.dbService.getTasks(15);
-      return allTasks.filter((t) => !t.completed).map((t) => t.title);
+      const allTasks = this.dbService.getTasks(30);
+      const unique: string[] = [];
+      for (const t of allTasks) {
+        if (!t.completed) {
+          const title = t.title.trim();
+          if (title && !unique.includes(title)) {
+            unique.push(title);
+          }
+        }
+      }
+      return unique.slice(0, 3);
     } catch (err) {
       logger.warn(`Failed to read tasks for briefing: ${err}`);
       return [];
@@ -264,24 +226,24 @@ export class BriefingService {
       const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
         city
       )}&count=1&language=en`;
-      const geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(4000) });
+      const geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(3000) });
       if (!geoRes.ok) return null;
       const geoData = (await geoRes.json()) as any;
       if (!geoData.results || geoData.results.length === 0) return null;
 
       const place = geoData.results[0];
-      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m`;
-      const weatherRes = await fetch(weatherUrl, { signal: AbortSignal.timeout(4000) });
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code`;
+      const weatherRes = await fetch(weatherUrl, { signal: AbortSignal.timeout(3000) });
       if (!weatherRes.ok) return null;
       const weatherData = (await weatherRes.json()) as any;
       if (!weatherData.current) return null;
 
       const temp = Math.round(weatherData.current.temperature_2m);
-      const feels = Math.round(weatherData.current.apparent_temperature);
-      const wind = Math.round(weatherData.current.wind_speed_10m);
+      const code = weatherData.current.weather_code;
+      const condition = this.getConditionName(code);
 
-      const display = `${temp}°C (feels like ${feels}°C) with wind at ${wind} km/h in ${place.name}, ${place.country || ''}`.trim();
-      const spoken = `In ${place.name}, it is currently ${temp} degrees Celsius, feeling like ${feels}, with wind speeds around ${wind} kilometres per hour.`;
+      const display = `${temp}°C, ${condition} in ${place.name}`;
+      const spoken = `In ${place.name}, it is currently ${temp} degrees and ${condition}.`;
       return { display, spoken };
     } catch (err) {
       logger.warn(`Failed to fetch weather for briefing: ${err}`);
@@ -289,53 +251,15 @@ export class BriefingService {
     }
   }
 
-  private async getTelemetrySummary(): Promise<{
-    display: string;
-    spoken: string;
-    gpuTemp?: number;
-  } | null> {
-    if (!this.telemetryService) return null;
-    try {
-      const hw = await this.telemetryService.getHardwareTelemetry();
-      const memPercent = hw.systemMemoryPercent;
-
-      let gpuPart = '';
-      let spokenGpu = '';
-      let gpuTemp: number | undefined;
-
-      if (hw.gpuName && !hw.gpuName.includes('Fallback')) {
-        gpuTemp = hw.gpuTemperatureC;
-        gpuPart = ` | GPU: ${hw.gpuName} (${hw.gpuTemperatureC}°C, ${hw.gpuVramUsedMB}MB VRAM)`;
-        spokenGpu = `Your ${hw.gpuName} GPU is running at ${hw.gpuTemperatureC} degrees Celsius.`;
-      }
-
-      const display = `RAM: ${memPercent}% in use (${Math.round(hw.systemMemoryUsedMB / 1024)}GB / ${Math.round(hw.systemMemoryTotalMB / 1024)}GB)${gpuPart}`;
-      const spoken = `System memory is at ${memPercent} percent utilization. ${spokenGpu}`.trim();
-
-      return { display, spoken, gpuTemp };
-    } catch (err) {
-      logger.warn(`Failed to get telemetry for briefing: ${err}`);
-      return null;
-    }
-  }
-
-  private async getNewsSummary(): Promise<Array<{ cleanTitle: string; url: string }>> {
-    if (!this.webService) return [];
-    try {
-      const results = await this.webService.search('top technology and world news today', 3);
-      if (!results || results.length === 0) return [];
-
-      return results.map((r: any) => {
-        // Clean title for speech (remove pipe separators, site suffixes like - BBC News)
-        const cleanTitle = (r.title || '').replace(/\s*[-|]\s*[^|]+$/, '').trim();
-        return {
-          cleanTitle,
-          url: r.url,
-        };
-      });
-    } catch (err) {
-      logger.warn(`Failed to fetch news for briefing: ${err}`);
-      return [];
-    }
+  private getConditionName(code: number): string {
+    if (code === 0) return 'clear skies';
+    if (code === 1 || code === 2) return 'partly cloudy';
+    if (code === 3) return 'overcast';
+    if (code >= 45 && code <= 48) return 'foggy';
+    if (code >= 51 && code <= 67) return 'rainy';
+    if (code >= 71 && code <= 77) return 'snowy';
+    if (code >= 80 && code <= 82) return 'showers';
+    if (code >= 95) return 'thunderstorms';
+    return 'fair conditions';
   }
 }

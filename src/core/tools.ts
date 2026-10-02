@@ -468,7 +468,7 @@ export async function executeTool(
         if (ctx.briefingService) {
           const type = args.type as ('morning' | 'evening' | 'general') | undefined;
           const loc = args.location as string | undefined;
-          const briefing = await ctx.briefingService.generateBriefing(type, loc);
+          const briefing = await ctx.briefingService.generateBriefing(type, loc, false);
           return {
             result: briefing.displayText,
             data: {

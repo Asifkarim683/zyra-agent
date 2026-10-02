@@ -411,7 +411,8 @@ async function runTests() {
     assert(genBriefingRes.status === 200, 'POST /api/v1/briefings/generate returns 200');
     assert(genBriefingJson.type === 'morning', 'Briefing returned morning type');
     assert(genBriefingJson.displayText.includes('Morning Briefing'), 'Briefing displayText contains header');
-    assert(genBriefingJson.voiceText.length > 50, 'Briefing voiceText contains natural conversational spoken sentences');
+    assert(genBriefingJson.voiceText.length > 30, 'Briefing voiceText contains natural conversational spoken sentences');
+    assert(!genBriefingJson.voiceText.includes('###') && !genBriefingJson.voiceText.includes('http'), 'Briefing voiceText contains no markdown headers or raw URLs');
 
     const pendingBriefingRes = await fetch(`http://localhost:${testPort}/api/v1/briefings/pending`);
     const pendingBriefingJson = await pendingBriefingRes.json();

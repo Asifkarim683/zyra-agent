@@ -36,6 +36,37 @@ function extractSpeechChunk(buffer: string, isFinal = false): { chunk: string; r
   return null;
 }
 
+export function cleanForSpeech(text: string): string {
+  if (!text) return '';
+  return text
+    // Strip markdown code fences (triple backticks)
+    .replace(/```[\s\S]*?```/g, '')
+    // Strip inline code (single backticks)
+    .replace(/`([^`]+)`/g, '$1')
+    // Convert markdown links [title](url) -> title
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove raw URLs
+    .replace(/https?:\/\/\S+/gi, '')
+    // Remove markdown headers (#, ##, ###)
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove blockquote arrows (> )
+    .replace(/^>\s+/gm, '')
+    // Remove bullet points (•, *, -) and numeric list prefixes (1., 2.)
+    .replace(/^[ \t]*[•\-\*]+[ \t]*/gm, '')
+    .replace(/^[ \t]*\d+\.[ \t]*/gm, '')
+    // Remove bold/italics (*, _)
+    .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1')
+    .replace(/[*_]/g, '')
+    // Remove pipe characters
+    .replace(/[|]/g, ', ')
+    // Normalize degree symbol
+    .replace(/°C/g, ' degrees Celsius')
+    .replace(/°F/g, ' degrees Fahrenheit')
+    // Collapse excess whitespace and trim
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -174,14 +205,21 @@ export function App() {
                 streamedText += data.token;
                 sentenceBuffer += data.token;
 
-                // Queue speech only on complete grammatical sentence boundaries
-                // avoiding abbreviations, numbers, and micro-fragments to eliminate stuttering
-                let nextChunk: { chunk: string; rest: string } | null;
-                while ((nextChunk = extractSpeechChunk(sentenceBuffer))) {
-                  const toSpeak = nextChunk.chunk;
-                  sentenceBuffer = nextChunk.rest;
-                  if (toSpeak) {
-                    voice.queueSentence(toSpeak);
+                // If this is a briefing response, suppress interim streaming audio chunks;
+                // we deliver the ultra-clean natural voiceText on the 'done' event instead.
+                const isBriefing =
+                  streamedText.includes('Briefing') ||
+                  streamedText.startsWith('###') ||
+                  streamedText.startsWith('#');
+
+                if (!isBriefing) {
+                  let nextChunk: { chunk: string; rest: string } | null;
+                  while ((nextChunk = extractSpeechChunk(sentenceBuffer))) {
+                    const toSpeak = cleanForSpeech(nextChunk.chunk);
+                    sentenceBuffer = nextChunk.rest;
+                    if (toSpeak) {
+                      voice.queueSentence(toSpeak);
+                    }
                   }
                 }
 
@@ -201,10 +239,21 @@ export function App() {
                   )
                 );
               } else if (event === 'done') {
-                // Speak any remaining sentence buffer cleanly
-                const finalChunk = extractSpeechChunk(sentenceBuffer, true);
-                if (finalChunk && finalChunk.chunk) {
-                  voice.queueSentence(finalChunk.chunk);
+                if (data.data?.briefing?.voiceText) {
+                  voice.stopSpeaking();
+                  if (voice.ttsEnabled) {
+                    voice.speak(cleanForSpeech(data.data.briefing.voiceText));
+                  }
+                  sentenceBuffer = '';
+                } else {
+                  // Speak any remaining sentence buffer cleanly
+                  const finalChunk = extractSpeechChunk(sentenceBuffer, true);
+                  if (finalChunk && finalChunk.chunk) {
+                    const toSpeak = cleanForSpeech(finalChunk.chunk);
+                    if (toSpeak) {
+                      voice.queueSentence(toSpeak);
+                    }
+                  }
                   sentenceBuffer = '';
                 }
 
@@ -275,8 +324,14 @@ export function App() {
       // Proactively deliver scheduled briefings if ready
       if (bRes.pending && Array.isArray(bRes.pending) && bRes.pending.length > 0) {
         for (const notif of bRes.pending) {
+          // Immediately acknowledge to prevent duplicate delivery or loops
+          fetch('/api/v1/briefings/ack', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: notif.id }),
+          }).catch(() => {});
+
           setMessages((prev) => {
-            // Avoid duplicate insertion
             if (prev.some((m) => m.id === notif.id)) return prev;
             return [
               ...prev,
@@ -291,16 +346,10 @@ export function App() {
             ];
           });
 
-          if (voice.ttsEnabled && notif.voiceText) {
-            voice.speak(notif.voiceText);
+          // Only speak proactive notifications if user is not currently in an active query
+          if (voice.ttsEnabled && notif.voiceText && !isLoading) {
+            voice.speak(cleanForSpeech(notif.voiceText));
           }
-
-          // Acknowledge delivered notification
-          fetch('/api/v1/briefings/ack', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: notif.id }),
-          }).catch(() => {});
         }
       }
     } catch (err) {
@@ -321,7 +370,7 @@ export function App() {
       const res = await fetch('/api/v1/briefings/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ forNotification: false }),
       });
       if (!res.ok) throw new Error('Failed to generate intelligence briefing');
       const data: BriefingData = await res.json();
@@ -341,7 +390,7 @@ export function App() {
       setIsLoading(false);
 
       if (voice.ttsEnabled && data.voiceText) {
-        voice.speak(data.voiceText);
+        voice.speak(cleanForSpeech(data.voiceText));
       }
     } catch (err: any) {
       setIsLoading(false);

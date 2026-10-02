@@ -7,6 +7,7 @@ export const briefingRouter = Router();
 const generateBriefingSchema = z.object({
   type: z.enum(['morning', 'evening', 'general']).optional(),
   location: z.string().max(100).optional(),
+  forNotification: z.boolean().optional(),
 });
 
 const ackSchema = z.object({
@@ -20,7 +21,8 @@ const ackSchema = z.object({
 briefingRouter.post('/generate', async (req, res, next) => {
   try {
     const data = generateBriefingSchema.parse(req.body);
-    const briefing = await briefingService.generateBriefing(data.type, data.location);
+    const forNotification = data.forNotification !== undefined ? data.forNotification : true;
+    const briefing = await briefingService.generateBriefing(data.type, data.location, forNotification);
     res.json(briefing);
   } catch (error) {
     next(error);
