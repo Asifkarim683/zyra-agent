@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Mic, MicOff, Loader2, RotateCcw, Square } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { AiOrb3D, type OrbState } from './AiOrb3D';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, MusicTrack } from '../types';
 
 interface ChatAreaProps {
   messages: ChatMessage[];
@@ -15,6 +15,11 @@ interface ChatAreaProps {
   onStartListening: () => void;
   onStopListening: () => void;
   onNewChat?: () => void;
+  currentTrack?: MusicTrack | null;
+  isMusicPlaying?: boolean;
+  onTogglePlayMusic?: () => void;
+  onSelectTrack?: (track: MusicTrack) => void;
+  onStopMusic?: () => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -28,6 +33,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onStartListening,
   onStopListening,
   onNewChat,
+  currentTrack,
+  isMusicPlaying,
+  onTogglePlayMusic,
+  onSelectTrack,
+  onStopMusic,
 }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -315,7 +325,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
             {/* Messages List */}
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                currentTrack={currentTrack}
+                isMusicPlaying={isMusicPlaying}
+                onTogglePlayMusic={onTogglePlayMusic}
+                onSelectTrack={onSelectTrack}
+                onStopMusic={onStopMusic}
+              />
             ))}
           </>
         )}

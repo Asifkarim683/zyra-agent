@@ -76,7 +76,6 @@ export function App() {
   const [isRoutinesOpen, setIsRoutinesOpen] = useState(false);
   const [isKnowledgeOpen, setIsKnowledgeOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
-  const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
 
   // Generate or load persistent conversationId
@@ -435,8 +434,14 @@ export function App() {
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
         onOpenKnowledge={() => setIsKnowledgeOpen(true)}
-        onOpenMusic={() => setIsMusicPlayerOpen(true)}
-        hasActiveMusic={Boolean(currentTrack)}
+        onOpenMusic={() => {
+          if (currentTrack) {
+            setIsMusicPlaying((prev) => !prev);
+          } else {
+            handleSendMessage('play music');
+          }
+        }}
+        hasActiveMusic={Boolean(currentTrack && isMusicPlaying)}
         onNewChat={handleNewChat}
       />
 
@@ -452,6 +457,17 @@ export function App() {
           onStartListening={voice.startListening}
           onStopListening={voice.stopListening}
           onNewChat={handleNewChat}
+          currentTrack={currentTrack}
+          isMusicPlaying={isMusicPlaying}
+          onTogglePlayMusic={() => setIsMusicPlaying((prev) => !prev)}
+          onSelectTrack={(track) => {
+            setCurrentTrack(track);
+            setIsMusicPlaying(true);
+          }}
+          onStopMusic={() => {
+            setIsMusicPlaying(false);
+            setCurrentTrack(null);
+          }}
         />
       </main>
 
@@ -469,18 +485,7 @@ export function App() {
 
       <MusicPlayer
         currentTrack={currentTrack}
-        isOpen={isMusicPlayerOpen}
-        onClose={() => setIsMusicPlayerOpen(false)}
-        onSelectTrack={(track) => {
-          setCurrentTrack(track);
-          setIsMusicPlaying(true);
-        }}
         isPlaying={isMusicPlaying}
-        onTogglePlay={() => setIsMusicPlaying((prev) => !prev)}
-        onStop={() => {
-          setIsMusicPlaying(false);
-          setCurrentTrack(null);
-        }}
       />
     </div>
   );

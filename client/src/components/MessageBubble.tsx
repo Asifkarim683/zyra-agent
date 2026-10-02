@@ -1,12 +1,24 @@
 import React, { useState } from 'react';
-import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play, Globe, ExternalLink, BookOpen, FileText, Calculator, Radio } from 'lucide-react';
-import type { ChatMessage, WebSource, KnowledgeChunk } from '../types';
+import { Bot, User, Zap, Terminal, ShieldAlert, CheckCircle2, XCircle, Play, Pause, Square, Globe, ExternalLink, BookOpen, FileText, Calculator, Radio, Music, Disc3 } from 'lucide-react';
+import type { ChatMessage, WebSource, KnowledgeChunk, MusicTrack } from '../types';
 
 interface MessageBubbleProps {
   message: ChatMessage;
+  currentTrack?: MusicTrack | null;
+  isMusicPlaying?: boolean;
+  onTogglePlayMusic?: () => void;
+  onSelectTrack?: (track: MusicTrack) => void;
+  onStopMusic?: () => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  currentTrack,
+  isMusicPlaying,
+  onTogglePlayMusic,
+  onSelectTrack,
+  onStopMusic,
+}) => {
   const isUser = message.role === 'user';
   const [status, setStatus] = useState<'pending' | 'confirmed' | 'cancelled' | 'error'>('pending');
   const [statusText, setStatusText] = useState<string>('');
@@ -517,6 +529,235 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               </span>
             </div>
           )}
+
+          {/* Small Dynamic Interactive Music Player Interface */}
+          {message.data?.music?.track && (() => {
+            const track = message.data.music.track;
+            const isThisTrack = Boolean(currentTrack && currentTrack.id === track.id);
+            const isThisTrackPlaying = Boolean(isThisTrack && isMusicPlaying);
+
+            return (
+              <div
+                style={{
+                  marginTop: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%)',
+                  border: isThisTrackPlaying
+                    ? '1px solid rgba(6, 182, 212, 0.6)'
+                    : '1px solid rgba(56, 189, 248, 0.25)',
+                  boxShadow: isThisTrackPlaying
+                    ? '0 0 20px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                    : '0 4px 15px rgba(0, 0, 0, 0.4)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  width: '100%',
+                  maxWidth: '440px',
+                }}
+              >
+                {/* Header Bar of the Music Card */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Music size={13} color={isThisTrackPlaying ? '#38bdf8' : '#94a3b8'} className={isThisTrackPlaying ? 'animate-pulse' : ''} />
+                    <span
+                      style={{
+                        fontSize: '10.5px',
+                        fontFamily: 'monospace',
+                        letterSpacing: '0.06em',
+                        color: isThisTrackPlaying ? '#38bdf8' : '#94a3b8',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {isThisTrackPlaying ? 'Now Streaming' : isThisTrack ? 'Playback Paused' : 'Music Track'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span
+                      style={{
+                        fontSize: '9.5px',
+                        fontFamily: 'monospace',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: track.platform === 'spotify' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: track.platform === 'spotify' ? '#34d399' : '#f87171',
+                        border: `1px solid ${track.platform === 'spotify' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                      }}
+                    >
+                      {track.platform}
+                    </span>
+
+                    <a
+                      href={track.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Open in ${track.platform === 'spotify' ? 'Spotify' : 'YouTube'}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#94a3b8',
+                        transition: 'color 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#38bdf8'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#94a3b8'; }}
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Main Track Display & Controls Row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                    {/* Thumbnail / Disc Icon */}
+                    <div
+                      style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        position: 'relative',
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+                      }}
+                    >
+                      {track.thumbnail ? (
+                        <img
+                          src={track.thumbnail}
+                          alt={track.title}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            background: '#0f172a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#38bdf8',
+                          }}
+                        >
+                          <Disc3 size={20} className={isThisTrackPlaying ? 'animate-spin' : ''} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Title & Artist */}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#f8fafc',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={track.title}
+                      >
+                        {track.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: '#94a3b8',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          marginTop: '1px',
+                        }}
+                      >
+                        {track.artist}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Animated Equalizer Wave (when playing) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '18px', padding: '0 4px', flexShrink: 0 }}>
+                    {[35, 75, 95, 45, 85, 60, 100, 50].map((h, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          width: '2.5px',
+                          borderRadius: '2px',
+                          background: isThisTrackPlaying ? '#38bdf8' : 'rgba(148, 163, 184, 0.3)',
+                          height: isThisTrackPlaying ? `${h}%` : '20%',
+                          transition: 'height 0.2s ease',
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Interactive Action Buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    <button
+                      onClick={() => {
+                        if (isThisTrack) {
+                          if (onTogglePlayMusic) onTogglePlayMusic();
+                        } else {
+                          if (onSelectTrack) onSelectTrack(track);
+                        }
+                      }}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        background: isThisTrackPlaying
+                          ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                          : 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                        border: '1px solid rgba(56, 189, 248, 0.5)',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: '0 0 10px rgba(56, 189, 248, 0.35)',
+                        transition: 'all 0.15s ease',
+                      }}
+                      title={isThisTrackPlaying ? 'Pause' : 'Play'}
+                    >
+                      {isThisTrackPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: '1px' }} />}
+                    </button>
+
+                    {isThisTrack && (
+                      <button
+                        onClick={() => {
+                          if (onStopMusic) onStopMusic();
+                        }}
+                        style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '50%',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          color: '#f87171',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        title="Stop Playback"
+                      >
+                        <Square size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* System Automation Confirmation Card */}
           {message.action === 'pending_confirmation' && (
