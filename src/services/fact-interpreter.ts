@@ -189,6 +189,18 @@ export class FactInterpreter {
     return this.buildFallbackFact(cleaned, ownerName);
   }
 
+  public static interpretSync(
+    rawFact: string,
+    ownerName: string = config.ownerName || 'Eren'
+  ): InterpretedFact {
+    const cleaned = this.cleanFactString(rawFact);
+    const deterministic = this.extractDeterministic(cleaned, ownerName);
+    if (deterministic) {
+      return deterministic;
+    }
+    return this.buildFallbackFact(cleaned, ownerName);
+  }
+
   /**
    * Cleans initial punctuation and prefixes like "remember that", "remember", etc.
    */

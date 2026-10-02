@@ -1,5 +1,8 @@
 import { SkillRegistry } from './skill-registry.js';
 import type { IntentMatch } from '../types/index.js';
+import { ConversationInterpreter } from '../services/conversation-interpreter.js';
+import type { DatabaseService } from '../services/database.js';
+import { config } from '../config/index.js';
 
 export interface InternalIntentPattern {
     pattern: RegExp;
@@ -9,10 +12,12 @@ export interface InternalIntentPattern {
 }
 
 /**
- * IntentRouter handles matching user inputs to specific skills before hitting the LLM.
+ * IntentRouter coordinates intent routing for user inputs across both
+ * conversational natural language and deterministic fast-paths.
  */
 export class IntentRouter {
     private registry: SkillRegistry;
+    private dbService?: DatabaseService;
     
     private builtInPatterns: InternalIntentPattern[] = [
         // Music patterns
@@ -179,9 +184,11 @@ export class IntentRouter {
 
     /**
      * @param registry The skill registry to fetch custom intent patterns from.
+     * @param dbService Optional DatabaseService for grounding conversation interpretation.
      */
-    constructor(registry: SkillRegistry) {
+    constructor(registry: SkillRegistry, dbService?: DatabaseService) {
         this.registry = registry;
+        this.dbService = dbService;
     }
 
     /**
@@ -200,7 +207,7 @@ export class IntentRouter {
 
     /**
      * Routes the input to a matched intent or returns null.
-     * Uses a two-phase matching strategy (exact command matching and pattern matching).
+     * Evaluates through the universal ConversationInterpreter first, then falls back to patterns.
      * 
      * @param input The user input to route.
      * @returns An IntentMatch object or null if no match is found (triggering LLM fallback).
@@ -209,7 +216,19 @@ export class IntentRouter {
         const rawInput = input.trim();
         const cleaned = this.cleanInput(input);
 
-        // 1. Check built-in patterns against both cleaned and raw input
+        // 1. Universal Conversation Interpreter (natural language entity & intent understanding)
+        const interpreted = ConversationInterpreter.interpretSync(rawInput, config.ownerName, this.dbService);
+        if (interpreted && interpreted.confidence >= 0.8 && interpreted.skill) {
+            return {
+                intent: interpreted.intent,
+                skill: interpreted.skill,
+                confidence: interpreted.confidence,
+                parameters: interpreted.parameters,
+                raw: rawInput
+            };
+        }
+
+        // 2. Check built-in patterns against both cleaned and raw input
         for (const bp of this.builtInPatterns) {
             const match = cleaned.match(bp.pattern) || rawInput.match(bp.pattern);
             if (match) {

@@ -50,8 +50,8 @@ registerAllSkills(
   briefingService
 );
 
-// 3. Initialize intent router
-export const intentRouter = new IntentRouter(skillRegistry);
+// 3. Initialize intent router grounded with persistent database
+export const intentRouter = new IntentRouter(skillRegistry, databaseService);
 
 // 4. Initialize conversation manager backed by SQLite
 export const conversationManager = new ConversationManager(10, databaseService);

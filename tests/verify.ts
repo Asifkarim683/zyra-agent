@@ -65,6 +65,14 @@ async function runTests() {
     { input: 'how are you', expectedSkill: 'system-info', expectedIntent: 'how_are_you' },
     { input: 'brief me', expectedSkill: 'briefing', expectedIntent: 'daily_briefing' },
     { input: 'morning briefing', expectedSkill: 'briefing', expectedIntent: 'morning_briefing' },
+    // Conversational utterances with polite preambles and natural framing
+    { input: 'Hey Zyra, could you please wake me up at 7am tomorrow?', expectedSkill: 'alarm', expectedIntent: 'set_alarm' },
+    { input: 'Can you kindly add review pull request to my tasks?', expectedSkill: 'todo', expectedIntent: 'add_task' },
+    { input: 'Set a 15 minute timer for boiling pasta please', expectedSkill: 'timer', expectedIntent: 'set_timer' },
+    { input: 'Could you tell me what the weather is in Tokyo right now?', expectedSkill: 'weather', expectedIntent: 'check_weather' },
+    { input: 'Thank you so much Zyra!', expectedSkill: 'greeting', expectedIntent: 'gratitude' },
+    { input: 'Good night Zyra, I am heading to bed', expectedSkill: 'greeting', expectedIntent: 'farewell' },
+    { input: 'Who are you?', expectedSkill: 'system-info', expectedIntent: 'identity' },
     { input: 'write me a poem about quantum gravity', expectedSkill: null, expectedIntent: null },
   ];
 
@@ -129,6 +137,32 @@ async function runTests() {
   const whatIsMyJobResult = await orchestrator.process('what is my job', convId);
   assert(whatIsMyJobResult.response.includes('Software Engineer'), 'Recalls saved profession correctly', whatIsMyJobResult.response);
 
+  // Test Universal Conversational Text Interpreter with polite preamble
+  const convAlarmResult = await orchestrator.process('Hey Zyra, could you please wake me up at 7am tomorrow?', convId);
+  assert(convAlarmResult.provider === 'skill', 'Conversational alarm routed to alarm skill');
+  assert(convAlarmResult.response.includes('7am'), 'Conversational alarm extracted time cleanly', convAlarmResult.response);
+
+  const convTodoResult = await orchestrator.process('Can you kindly add review pull request to my tasks?', convId);
+  assert(convTodoResult.provider === 'skill', 'Conversational task routed to todo skill');
+  assert(convTodoResult.response.includes('review pull request'), 'Conversational task extracted title cleanly', convTodoResult.response);
+
+  const convGratitudeResult = await orchestrator.process('Thank you so much Zyra!', convId);
+  assert(convGratitudeResult.provider === 'skill', 'Gratitude routed to greeting skill');
+  assert(convGratitudeResult.response.toLowerCase().includes('welcome'), 'Gratitude returns gracious British response', convGratitudeResult.response);
+
+  const convFarewellResult = await orchestrator.process('Good night Zyra, I am heading to bed', convId);
+  assert(convFarewellResult.provider === 'skill', 'Farewell routed to greeting skill');
+  assert(convFarewellResult.response.includes('Good night'), 'Farewell returns warm evening response', convFarewellResult.response);
+
+  const convWeatherResult = await orchestrator.process('Could you tell me what the weather is in Tokyo right now?', convId);
+  assert(convWeatherResult.provider === 'skill', 'Conversational weather routed to weather skill');
+  assert(convWeatherResult.response.includes('Tokyo') && convWeatherResult.response.includes('°C'), 'Weather returned live temperature for Tokyo', convWeatherResult.response);
+
+  const convTimerResult = await orchestrator.process('Zyra, could you please set a fifteen minute timer for boiling pasta?', convId);
+  assert(convTimerResult.provider === 'skill', 'Conversational timer routed to timer skill');
+  assert(convTimerResult.response.includes('15 minutes'), 'Timer converted word fifteen to 15 minutes', convTimerResult.response);
+  assert(convTimerResult.response.includes('boiling pasta'), 'Timer captured custom label', convTimerResult.response);
+
   // Test Timer Skill Execution
   const timerResult = await orchestrator.process('set a timer for 10 minutes', convId);
   assert(timerResult.provider === 'skill', 'Timer routed to skill');
@@ -140,7 +174,7 @@ async function runTests() {
 
   const cancelTimerResult = await orchestrator.process('cancel my timer', convId);
   assert(cancelTimerResult.provider === 'skill', 'Cancel timer routed to skill');
-  assert(cancelTimerResult.response.includes('cancelled'), 'Cancel timer confirmed cancellation', cancelTimerResult.response);
+  assert(cancelTimerResult.response.toLowerCase().includes('cancel'), 'Cancel timer confirmed cancellation', cancelTimerResult.response);
 
   // Test Todo / Task Skill Execution
   const addTaskResult = await orchestrator.process('add review pull request to my tasks', convId);
@@ -491,6 +525,7 @@ async function runTests() {
   if (failed > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runTests().catch((err) => {

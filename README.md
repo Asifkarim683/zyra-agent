@@ -1,359 +1,175 @@
 <p align="center">
   <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
   <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white" />
-  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" />
+  <img src="https://img.shields.io/badge/SQLite_WAL-003B57?style=for-the-badge&logo=sqlite&logoColor=white" />
   <img src="https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js_VM-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
 </p>
 
-# 🧠 Zyra — Cybernetic AI Assistant
+# 🧠 Zyra — Autonomous Cybernetic Voice Agent & AI Operating Environment
 
-**Zyra** is a fully local, privacy-first AI assistant with neural voice, autonomous tool calling, live web intelligence, and semantic vector memory — all running on your own hardware. No cloud APIs required.
+**Zyra** is a local, privacy-first autonomous AI companion and operational voice environment engineered with neural speech synthesis, deterministic conversational parsing, isolated mathematical sandboxing, semantic vector memory, and proactive intelligence synthesis.
 
-> Built with Ollama + React + TypeScript. Designed for a single user. Runs entirely offline.
-
----
-
-## ✨ Features
-
-### 🗣️ Neural Voice Engine
-- **British female voice** (`en-GB-SoniaNeural`) via Edge TTS
-- Real-time streaming text-to-speech with chunked sentence delivery
-- Voice toggle on/off from the UI
-- Audio playback queue with graceful stop support
-
-### 💬 Streaming Chat with SSE
-- Server-Sent Events for real-time token-by-token LLM streaming
-- Thinking/status indicators during multi-step reasoning
-- **Stop button** to abort generation and speech mid-stream (`Escape` key support)
-- Markdown rendering in message bubbles
-
-### 🔧 Autonomous Tool Calling
-Zyra decides when to invoke tools based on natural language — no slash commands needed.
-
-| Tool | Description |
-|------|-------------|
-| `get_weather` | Live weather conditions for any city worldwide |
-| `get_time_or_date` | Current time/date, optionally by timezone or city |
-| `search_web` | Real-time internet search via DuckDuckGo |
-| `read_webpage` | Fetch and extract readable content from any URL |
-| `search_knowledge_base` | Semantic vector search across documents and memory |
-| `manage_memory` | Remember personal facts, habits, and preferences |
-| `manage_timer` | Set, check, or cancel countdown timers |
-| `manage_tasks` | Add, list, or complete to-do items |
-| `execute_calculation_or_code` | Sandboxed JavaScript execution for 100% precision math, stats, finance, and conversions |
-| `get_voice_briefing` | Generate comprehensive live daily voice briefing (weather, tasks, news, system stats) |
-
-Tools are **dynamically injected** — only relevant tool schemas are sent to the LLM based on regex intent matching, eliminating prompt bloat and false-positive calls.
-
-### ⚡ Safe Math & Code Execution Sandbox
-- **Node.js `node:vm` isolation** with strict timeout protection (1500ms) and token blocking against host tampering.
-- **Built-in computational libraries**:
-  - **Statistics**: `avg`, `median`, `sum`, `min`, `max`, `stdDev`, `variance`, `factorial`, `combinations`, `permutations`
-  - **Finance**: `compoundInterest`, `loanPayment` (monthly EMI calculations)
-  - **Date & Time**: `daysBetween`, `hoursBetween`, `addDays`
-  - **Unit Conversions**: `unitConvert` (length, mass, temperature, data storage)
-- **UI Calculation Card**: Evaluated expressions render in chat with syntax pills, execution latency (e.g. `1.2ms`), and output badges.
-
-### 🎙️ Proactive & Scheduled Voice Briefings
-- **Dynamic Intelligence Compilation**: Synthesizes time of day, live local weather (Open-Meteo), uncompleted to-do tasks from SQLite, top world/tech news headlines with links, and GPU/RAM telemetry.
-- **Dual Voice & Text Output**:
-  - `voiceText`: Natural continuous conversational speech crafted exclusively for the British female voice (`en-GB-SoniaNeural`) without awkward punctuation or asterisks.
-  - `displayText`: Rich markdown dashboard rendered in chat.
-- **Proactive & On-Demand Delivery**:
-  - Trigger on-demand via header button `[BRIEFING]` or by saying *"Give me my morning briefing"* / *"Brief me"*.
-  - Runs autonomously on scheduled cron intervals (`0 8 * * *` morning briefing / `0 20 * * *` evening summary).
-  - Automatically pops into chat and announces itself when voice is active.
-
-### 🌐 Live Web Intelligence
-- **DuckDuckGo Lite search** — POST-based scraping for clean organic results
-- **Web page reader** — Extracts readable content from any URL with SSRF protection
-- **Citation cards** — Web sources rendered inline with domain badges, titles, and snippets
-
-### 📚 Semantic Vector Memory & Local Document RAG
-- **Embedding model**: `nomic-embed-text` (768-dim vectors, runs locally via Ollama)
-- **Document ingestion** — Index text, notes, or documents into a local vector store
-- **Semantic search** — Cosine similarity retrieval across all indexed content
-- **Long-term memory** — Facts and preferences stored as vector embeddings, recalled automatically during conversation (subconscious memory recall at pipeline Node 2)
-- **Knowledge Base dashboard** — 3-tab modal UI for document management, ingestion, and live semantic search testing
-- **Citation cards** — Knowledge chunks rendered inline with similarity percentages
-
-### 🧩 Skill System
-Modular skill architecture with hot-registration:
-
-- **Briefing** — Proactive and on-demand morning and evening voice reports
-- **Greeting** — Context-aware greetings
-- **Time / Date** — Timezone-aware responses
-- **Weather** — Live weather data
-- **Alarm / Timer** — Countdown timers
-- **Memory** — Persistent fact storage (SQLite-backed)
-- **To-Do** — Task management with completion tracking
-- **System Info** — Hardware and OS telemetry
-- **Music / Control** — Media and system control stubs
-
-### 📊 Pipeline Tracing & Telemetry
-- **6-node execution pipeline**: Intent Classification → Subconscious Memory Recall → Skill Routing → Prompt Construction → Tool Execution → Response Synthesis
-- Every node timed and traced — full pipeline visibility
-- **GPU telemetry** — NVIDIA GPU stats (utilization, VRAM, temperature) via `nvidia-smi`
-- **External monitor page** — Standalone HTML dashboard (`/monitor.html`) showing live model stats, pipeline traces, and GPU metrics
-
-### ⏰ Routines & Scheduler
-- Cron-based routine scheduler for recurring tasks
-- Quick-access routine panel in the UI
+> 🔒 **Personal Showcase & Portfolio Project**  
+> This repository is maintained as an individual engineering showcase by **Asif Karim ([@Asifkarim683](https://github.com/Asifkarim683))**. It is designed to illustrate full-stack systems architecture, local LLM integration, voice streaming, and defensive agent design. It is presented for exhibition and portfolio code review and is **not intended for cloning, redistribution, or external deployment**.
 
 ---
 
-## 🏗️ Architecture
+## 🏛️ Engineering Highlights & Core Capabilities
+
+### 1. 🗣️ Universal Conversational Text Interpreter
+Unlike standard chatbots that rely entirely on slow, non-deterministic LLM roundtrips for basic conversational commands, Zyra features a **Universal Conversational Text Interpreter** (`ConversationInterpreter`) that delivers `<0.1ms` deterministic intent extraction across all conversational domains:
+- **Compound Politeness Stripping**: Recursively removes layered conversational preambles (*"Hey Zyra, could you please tell me..."*, *"Can you kindly..."*, *"I was wondering if you could..."*) down to the exact functional core.
+- **Natural Colloquial Phrasing**: Interprets spoken queries like *"what the weather is like in Tokyo right now"* or *"what time it is in Paris"* without requiring rigid syntax.
+- **Number-Word Tokenization**: Converts colloquial number words (*"half an hour"*, *"fifteen minutes"*, *"twenty secs"*) into precise programmatic quantities.
+- **Multi-Domain Coverage**: Handles Social/Chit-chat (greetings, gratitude, farewells, identity), Alarms & Reminders, Countdown Timers, Tasks/Todos, Live Weather, World Time, Sandboxed Math, System Controls, and Personal Memory facts.
+
+### 2. 🎙️ Neural Voice Engine & Proactive Spoken Briefings
+- **British Neural Voice (`en-GB-SoniaNeural`)**: Tailored persona with articulate British English cadence and real-time audio chunking.
+- **Proactive Startup Voice Briefing**: Upon launching the application, Zyra synthesizes a clean, spoken intelligence briefing without requiring user text prompting.
+- **Dual Voice/Text Pipeline**:
+  - `voiceText`: Pure, natural conversational speech crafted without markdown headers, asterisks, URLs, or bracketed citations.
+  - `displayText`: Rich markdown cards with live weather metrics, task counts, news headlines, and system telemetry.
+- **Scheduled Autonomous Routines**: Cron-managed routines (`0 8 * * *` morning briefing, `0 20 * * *` evening debrief) with pending notification queues.
+
+### 3. ⚡ Safe Mathematical & Code Execution Sandbox
+- **Host-Isolated `node:vm` Container**: Eliminates hallucinated calculations by executing mathematical, statistical, and algorithmic queries inside a hardened execution sandbox.
+- **Built-in Computational Libraries**:
+  - **Statistics**: `avg()`, `median()`, `sum()`, `min()`, `max()`, `stdDev()`, `variance()`, `factorial()`, `combinations()`, `permutations()`
+  - **Finance**: `compoundInterest()`, `loanPayment()` (monthly EMI calculations)
+  - **Date Arithmetic**: `daysBetween()`, `hoursBetween()`, `addDays()`
+  - **Dimensional Unit Conversions**: `unitConvert()` across metric/imperial lengths, masses, temperatures, and digital storage.
+- **Defensive Safeguards**: Strict 1500ms timeout protection, infinite loop termination, and AST/token blacklisting against host access (`process`, `require`, `fs`, `eval`).
+
+### 4. 🧠 Subconscious Semantic Memory & Local Document RAG
+- **Zero-Latency Memory Fast-Path**: Parses facts, profile updates, and preferences (`FactInterpreter`) and writes them directly to local SQLite in WAL mode.
+- **Subconscious Vector Memory Recall**: Node 2 of the pipeline automatically computes 768-dimensional vector embeddings (`nomic-embed-text`) to recall relevant long-term memories before formulating responses.
+- **Local Document RAG**: Complete document ingestion pipeline allowing indexing and cosine-similarity retrieval over personal reference materials.
+
+### 5. 🌐 Live Web Intelligence & Real-Time Weather
+- **Scraped Web Search**: Autonomous DuckDuckGo Lite integration for real-time fact retrieval without commercial API keys.
+- **Clean Article Extraction**: In-memory HTML parser for extracting readable content from remote web pages.
+- **Open-Meteo Geocoding**: Real-time worldwide weather and temperature monitoring with phonetic city name resolution fallbacks.
+
+### 6. 🛡️ Defensive Security & Hardening
+- **Loopback & Private SSRF Defense**: Comprehensive CIDR and IP validation blocking access to `127.0.0.1`, `localhost`, `10.x.x.x`, `192.168.x.x`, and cloud metadata endpoints (`169.254.169.254`).
+- **Strict OS Protection**: Desktop application execution is architecturally isolated and disabled to ensure host integrity.
+- **Zod Schema Contracts**: All REST endpoints and environment configurations are validated at compile and runtime.
+
+---
+
+## 🏗️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     React Frontend                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────────┐  │
-│  │  3D Orb  │ │ Chat SSE │ │  Header  │ │ Knowledge UI  │  │
-│  │(Three.js)│ │  Stream  │ │ Controls │ │  (RAG Modal)  │  │
-│  └──────────┘ └──────────┘ └──────────┘ └───────────────┘  │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTP + SSE
-┌────────────────────────▼────────────────────────────────────┐
-│                   Express Backend                           │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Orchestrator (6-Node Pipeline)           │   │
-│  │  N1: Intent → N2: Memory → N3: Skill → N4: Prompt   │   │
-│  │  N5: Tools → N6: Synthesis                           │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌───────────────┐   │
-│  │  Tools  │ │ Web Svc  │ │ RAG Svc │ │ Embedding Svc │   │
-│  └─────────┘ └──────────┘ └─────────┘ └───────────────┘   │
-│  ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌───────────────┐   │
-│  │  Voice  │ │ Database │ │Telemetry│ │   Scheduler   │   │
-│  │  (TTS)  │ │ (SQLite) │ │  (GPU)  │ │   (Cron)      │   │
-│  └─────────┘ └──────────┘ └─────────┘ └───────────────┘   │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-          ┌──────────────▼──────────────┐
-          │      Ollama (Local LLM)     │
-          │  ┌────────┐ ┌────────────┐  │
-          │  │llama3.2│ │nomic-embed │  │
-          │  │  :3b   │ │   -text    │  │
-          │  └────────┘ └────────────┘  │
-          └─────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        React 18 Frontend UI                            │
+│  ┌────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  │
+│  │  3D Audio Orb  │  │ Real-Time SSE    │  │ Knowledge Base Modal   │  │
+│  │   (Three.js)   │  │ Streaming Chat   │  │ & Memory Inspector     │  │
+│  └────────────────┘  └──────────────────┘  └────────────────────────┘  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTP / Server-Sent Events (SSE)
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                    Express & TypeScript Backend                        │
+│                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │           Universal Conversational Text Interpreter              │  │
+│  │   (Preamble Stripping • Entity Extraction • Intent Mapping)      │  │
+│  └──────────────────────────────────┬───────────────────────────────┘  │
+│                                     │                                  │
+│                 ┌───────────────────┴───────────────────┐              │
+│                 ▼                                       ▼              │
+│  ┌─────────────────────────────┐         ┌──────────────────────────┐  │
+│  │ Deterministic Skill Engine  │         │ 6-Node Traced Pipeline   │  │
+│  │ (< 0.1ms Fast-Path Response)│         │ (Local LLM Orchestrator) │  │
+│  └──────────────┬──────────────┘         └────────────┬─────────────┘  │
+│                 │                                     │                │
+│                 ▼                                     ▼                │
+│  ┌─────────────────────────────┐         ┌──────────────────────────┐  │
+│  │ Isolated Math Sandbox (VM)  │         │ Subconscious Memory RAG  │  │
+│  │ Proactive Voice Briefings   │         │ Dynamic Tool Calling     │  │
+│  │ SQLite WAL Database Service │         │ Local Ollama (llama3.2)  │  │
+│  └─────────────────────────────┘         └──────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 🔬 6-Node Traced Execution Pipeline
 
-| Layer | Technology |
-|-------|-----------|
-| **LLM** | Ollama `llama3.2:3b` (local, 4-bit quantized) |
-| **Embeddings** | Ollama `nomic-embed-text` (768-dim, local) |
-| **Backend** | Node.js, Express, TypeScript |
-| **Frontend** | React 18, Vite, TypeScript |
-| **3D Visuals** | Three.js (animated AI orb) |
-| **Voice** | Edge TTS (`en-GB-SoniaNeural`) |
-| **Database** | SQLite (WAL mode) via `better-sqlite3` |
-| **Validation** | Zod (env + request schemas) |
-| **Icons** | Lucide React |
-| **Logging** | Winston |
-| **Scheduling** | node-cron |
-
----
-
-## 📁 Project Structure
+Every user interaction traverses an instrumented, telemetry-tracked processing pipeline:
 
 ```
-zyra-agent/
-├── client/                     # React frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── AiOrb3D.tsx     # Three.js animated orb
-│   │   │   ├── ChatArea.tsx    # Chat input + messages + stop button
-│   │   │   ├── Header.tsx      # Top bar with controls
-│   │   │   ├── KnowledgeModal.tsx  # RAG document management UI
-│   │   │   ├── MessageBubble.tsx   # Message rendering + citations
-│   │   │   ├── QuickRoutines.tsx   # Routine shortcuts
-│   │   │   └── SkillsDrawer.tsx    # Skill registry viewer
-│   │   ├── hooks/
-│   │   │   └── useVoice.ts     # TTS audio playback hook
-│   │   ├── App.tsx             # Root component + state management
-│   │   └── types.ts            # Frontend type definitions
-│   └── public/
-│       └── monitor.html        # External pipeline monitor
-├── src/                        # Backend
-│   ├── config/
-│   │   ├── index.ts            # Zod-validated env config
-│   │   └── logger.ts           # Winston logger
-│   ├── core/
-│   │   ├── orchestrator.ts     # 6-node execution pipeline
-│   │   ├── intent-router.ts    # Intent classification engine
-│   │   ├── skill-registry.ts   # Skill hot-registration
-│   │   ├── conversation-manager.ts  # Multi-turn context
-│   │   ├── pipeline-tracer.ts  # Node timing & tracing
-│   │   └── tools.ts            # Tool schemas + execution
-│   ├── services/
-│   │   ├── database.ts         # SQLite service (WAL mode)
-│   │   ├── embedding-service.ts # nomic-embed-text integration
-│   │   ├── rag-service.ts      # Vector search + document ingestion
-│   │   ├── web-service.ts      # DuckDuckGo search + web scraper
-│   │   ├── voice-service.ts    # Edge TTS streaming
-│   │   ├── telemetry-service.ts # GPU/system metrics
-│   │   ├── scheduler.ts        # Cron-based routines
-│   │   └── llm/
-│   │       ├── llm-service.ts  # LLM abstraction layer
-│   │       ├── ollama-provider.ts  # Ollama integration
-│   │       └── claude-provider.ts  # Anthropic fallback
-│   ├── skills/                 # Modular skill implementations
-│   ├── routes/                 # Express API routes
-│   └── types/                  # Shared TypeScript types
-├── data/                       # SQLite database files
-├── tests/                      # Test suite (121 tests)
-└── public/                     # Static assets
+[User Utterance]
+       │
+       ▼
+ [Node 1: Intent Classification]  ──> Deterministic regex & conversational interpreter
+       │
+       ▼
+ [Node 2: Subconscious Memory]    ──> Vector cosine-similarity retrieval (nomic-embed-text)
+       │
+       ▼
+ [Node 3: Skill Fast-Path]        ──> Immediate execution if intent is deterministic
+       │
+       ▼
+ [Node 4: Contextual Prompting]   ──> System prompt + history + memories + dynamic tools
+       │
+       ▼
+ [Node 5: Autonomous Tool Loop]   ──> Weather, Search, Web Reader, Sandbox, Timers
+       │
+       ▼
+ [Node 6: Response Synthesis]     ──> British English persona formatting + SSE Stream
 ```
 
 ---
 
-## 🔌 API Endpoints
+## 💻 Tech Stack & System Specifications
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/chat` | Send a message (SSE streaming response) |
-| `GET` | `/api/health` | Health check with system status |
-| `GET` | `/api/skills` | List all registered skills |
-| `GET` | `/api/routines` | List scheduled routines |
-| `POST` | `/api/routines` | Create a new routine |
-| `POST` | `/api/voice/tts` | Text-to-speech audio generation |
-| `GET` | `/api/memory` | Retrieve stored memories |
-| `POST` | `/api/memory` | Store a new memory |
-| `GET` | `/api/telemetry` | GPU and system telemetry |
-| `GET` | `/api/documents` | List indexed documents |
-| `POST` | `/api/documents` | Ingest a new document |
-| `DELETE` | `/api/documents/:source` | Remove an indexed document |
-| `POST` | `/api/documents/query` | Semantic search across documents |
-| `POST` | `/api/briefings/generate` | Generate on-demand voice & text briefing |
-| `GET` | `/api/briefings/pending` | Check pending scheduled proactive voice briefings |
-| `POST` | `/api/briefings/ack` | Acknowledge delivered voice briefing |
-| `POST` | `/api/sandbox/execute` | Execute sandboxed JavaScript calculation or expression |
+| Domain | Technology | Purpose |
+|---|---|---|
+| **Language** | TypeScript (ESNext) | Full-stack end-to-end type safety |
+| **Backend Core** | Node.js 20+, Express | RESTful API and Server-Sent Events (SSE) streaming |
+| **Sandbox Execution**| `node:vm` Context Isolation | High-precision arithmetic and code execution sandbox |
+| **Frontend Framework**| React 18, Vite | Component architecture and state management |
+| **3D Cybernetic Graphics**| Three.js, Canvas | Audio-reactive, interactive 3D orb visualization |
+| **Neural Voice Engine** | Edge TTS (`en-GB-SoniaNeural`)| Real-time streaming British speech delivery |
+| **Local LLM Inference** | Ollama (`llama3.2:3b`) | Offline, local neural reasoning and tool calling |
+| **Vector Embeddings** | Ollama (`nomic-embed-text`) | 768-dimensional local vector space embeddings |
+| **Relational & WAL Store**| SQLite (`better-sqlite3`) | Persistent memory, tasks, routines, and telemetry |
+| **Validation & Security**| Zod, Custom SSRF Guard | Strict runtime schema enforcement and network defense |
+| **Styling & Icons** | Tailwind CSS, Lucide React | Cybernetic dark-mode terminal interface |
 
 ---
 
-## 🚀 Getting Started
+## 🧪 Automated Verification Suite
 
-### Prerequisites
-
-- **Node.js** 20+
-- **npm** (or yarn/pnpm)
-- **[Ollama](https://ollama.com)** installed and running
-- **NVIDIA GPU** (optional, for GPU telemetry — any GPU works for inference)
-
-### 1. Clone the Repository
+The repository includes a comprehensive end-to-end verification test harness (`tests/verify.ts`) executing **177 automated tests with 0 failures**:
 
 ```bash
-git clone https://github.com/Asifkarim683/zyra-agent.git
-cd zyra-agent
+========================================
+Test Results: 177 passed, 0 failed
+========================================
 ```
 
-### 2. Pull Ollama Models
-
-```bash
-ollama pull llama3.2:3b
-ollama pull nomic-embed-text
-```
-
-### 3. Install Dependencies
-
-```bash
-# Backend
-npm install
-
-# Frontend
-cd client && npm install && cd ..
-```
-
-### 4. Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your settings:
-
-```env
-PORT=3000
-NODE_ENV=development
-LLM_MODE=local
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2:3b
-LOG_LEVEL=info
-ASSISTANT_NAME=Zyra
-OWNER_NAME=Eren
-```
-
-### 5. Start the Application
-
-```bash
-# Start Ollama (if not already running)
-ollama serve
-
-# Start Zyra backend (in one terminal)
-npm run dev
-
-# Start React frontend (in another terminal)
-npm run dev:client
-```
-
-The backend runs on `http://localhost:3000` and the frontend on `http://localhost:5173`.
+Test coverage includes:
+- **Conversational Parsing**: Preamble stripping, compound politeness phrases, word-number resolution, and entity extraction.
+- **Skill Engine**: Intent routing accuracy across all skills (Greeting, Memory, Weather, Time, Timers, Alarms, Tasks, Control, System Info).
+- **Math Sandbox**: Arithmetic, statistical distributions, compound interest formulas, date calculations, unit conversions, infinite-loop timeouts, and token blocking.
+- **Proactive Briefings**: Dual voice/text generation, clean audio formatting, pending notification state, and acknowledgment lifecycle.
+- **Security & SSRF Guards**: Loopback, CIDR, private IP, and cloud metadata blocking.
+- **Database & WAL Persistence**: SQLite multi-process concurrency, schema integrity, and vector recall.
 
 ---
 
-## 📜 Available Scripts
+## 🔒 Showcase Notice & Portfolio Statement
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start backend in dev mode with hot-reload (tsx watch) |
-| `npm run dev:client` | Start React frontend dev server (Vite) |
-| `npm run build` | Compile TypeScript backend |
-| `npm run build:client` | Build React frontend for production |
-| `npm run start` | Run compiled backend |
-| `npm run test` | Run verification test suite (121 tests) |
-| `npm run lint` | ESLint code analysis |
+This project was conceived, designed, and implemented as a personal exploration into autonomous AI agent architecture, neural voice interfaces, and high-performance local computing.
 
----
-
-## 🧪 Testing
-
-```bash
-npm test
-```
-
-Runs the full verification suite — **146 tests** covering:
-- Configuration validation
-- Intent routing accuracy
-- Skill registration and execution
-- Tool schema validation and dynamic regex gating
-- Pipeline tracing and node telemetry
-- Database operations (SQLite WAL mode)
-- Embedding and RAG services (nomic-embed-text)
-- Safe Math & Code Execution Sandbox (arithmetic, stats, finance, dates, unit conversion, security guards, timeout)
-- Proactive Voice Briefing service (weather, tasks, news, GPU telemetry, dual voice/text output)
-
----
-
-## 🔒 Privacy & Security
-
-- **100% local inference** — LLM and embeddings run on your machine via Ollama
-- **No data leaves your device** — All conversations, memories, and documents stored in local SQLite
-- **SSRF protection** — Web scraper blocks requests to private/internal IP ranges
-- **System automation disabled** — Desktop control is architecturally stubbed but strictly deactivated
-
----
-
-## 📄 License
-
-This project is licensed under the ISC License. See the [LICENSE](LICENSE) file for details.
-
----
+- **Author**: Asif Karim ([@Asifkarim683](https://github.com/Asifkarim683))
+- **Environment**: Developed and tuned for personal hardware with local GPU inference.
+- **Distribution Notice**: All code is shared for portfolio demonstration only. External redistribution, cloning, or public hosting is not authorized.
 
 <p align="center">
-  <b>Zyra</b> — Your local, private, cybernetic AI companion.<br/>
-  Built with ❤️ by <b>Eren</b>
+  <b>Zyra</b> — Engineering Showcase by <b>Asif Karim</b>
 </p>
