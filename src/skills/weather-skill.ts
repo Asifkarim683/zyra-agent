@@ -41,6 +41,13 @@ export class WeatherSkill extends BaseSkill {
     { pattern: /weather forecast(?: for| in) (.*)/i, intent: 'check_weather' },
   ];
 
+  private dbService?: import('../services/database.js').DatabaseService;
+
+  constructor(dbService?: import('../services/database.js').DatabaseService) {
+    super();
+    this.dbService = dbService;
+  }
+
   /**
    * Executes the weather skill.
    */
@@ -53,6 +60,15 @@ export class WeatherSkill extends BaseSkill {
       const match = raw.match(/\b(?:in|for|at)\s+([a-zA-Z\s.-]+?)(?:\s+(?:right now|today|tomorrow))?[?!.,]?$/i);
       if (match && match[1]) {
         location = match[1].trim();
+      }
+    }
+
+    if (!location && this.dbService) {
+      try {
+        const memories = this.dbService.getAllMemories();
+        location = memories['city'] || memories['location'];
+      } catch {
+        // Fall back to prompting if DB read fails
       }
     }
 
@@ -75,7 +91,7 @@ export class WeatherSkill extends BaseSkill {
         throw new Error('Geocoding service unavailable');
       }
 
-      const geoData = (await geoRes.json()) as {
+      let geoData = (await geoRes.json()) as {
         results?: Array<{
           name: string;
           country?: string;
@@ -83,6 +99,19 @@ export class WeatherSkill extends BaseSkill {
           longitude: number;
         }>;
       };
+
+      if (!geoData.results || geoData.results.length === 0) {
+        if (/shwar/i.test(cleanedLocation)) {
+          const altLoc = cleanedLocation.replace(/shwar/gi, 'swar');
+          const altUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+            altLoc
+          )}&count=1&language=en`;
+          const altRes = await fetch(altUrl, { signal: AbortSignal.timeout(5000) });
+          if (altRes.ok) {
+            geoData = (await altRes.json()) as any;
+          }
+        }
+      }
 
       if (!geoData.results || geoData.results.length === 0) {
         return this.success(`I couldn't find a location matching "${cleanedLocation}". Please check the spelling and try again.`);

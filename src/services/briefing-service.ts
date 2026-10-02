@@ -245,9 +245,13 @@ export class BriefingService {
     if (!this.dbService) return undefined;
     try {
       const memories = this.dbService.getAllMemories();
+      if (memories['city']) return memories['city'];
+      if (memories['location']) {
+        return memories['location'].split(',')[0].trim();
+      }
       for (const [k, v] of Object.entries(memories)) {
         if (k.toLowerCase().includes('city') || k.toLowerCase().includes('location')) {
-          return v;
+          return v.split(',')[0].trim();
         }
       }
       return undefined;
@@ -286,9 +290,19 @@ export class BriefingService {
       const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
         city
       )}&count=1&language=en`;
-      const geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(3000) });
+      let geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(3000) });
       if (!geoRes.ok) return null;
-      const geoData = (await geoRes.json()) as any;
+      let geoData = (await geoRes.json()) as any;
+      if (!geoData.results || geoData.results.length === 0) {
+        if (/shwar/i.test(city)) {
+          const altCity = city.replace(/shwar/gi, 'swar');
+          const altUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(altCity)}&count=1&language=en`;
+          const altRes = await fetch(altUrl, { signal: AbortSignal.timeout(3000) });
+          if (altRes.ok) {
+            geoData = (await altRes.json()) as any;
+          }
+        }
+      }
       if (!geoData.results || geoData.results.length === 0) return null;
 
       const place = geoData.results[0];

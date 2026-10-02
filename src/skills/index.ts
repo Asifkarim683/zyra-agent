@@ -51,7 +51,7 @@ export function registerAllSkills(
     new MusicSkill(),
     new ControlSkill(),
     new SystemInfoSkill(),
-    new WeatherSkill(),
+    new WeatherSkill(dbService),
     new MemorySkill(dbService),
     new TimerSkill(),
     new TodoSkill(dbService),

@@ -67,6 +67,12 @@ export const llmService = new LLMService(
   databaseService
 );
 
+// Connect LLM service to memory skill for intelligent fallback interpretation
+const memSkill = skillRegistry.get('memory') as any;
+if (memSkill && typeof memSkill.setLLMService === 'function') {
+  memSkill.setLLMService(llmService);
+}
+
 // 6. Initialize orchestrator (central brain connecting router, skills, LLM, memory, web, sandbox, and briefing)
 export const orchestrator = new Orchestrator(
   intentRouter,

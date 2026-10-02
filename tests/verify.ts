@@ -52,6 +52,9 @@ async function runTests() {
     { input: 'time in Paris', expectedSkill: 'time', expectedIntent: 'get_time' },
     { input: 'what is the weather in London', expectedSkill: 'weather', expectedIntent: 'check_weather' },
     { input: 'remember that my favorite color is emerald green', expectedSkill: 'memory', expectedIntent: 'remember_fact' },
+    { input: 'remember Im from Odisha Bhubaneshwar India', expectedSkill: 'memory', expectedIntent: 'remember_fact' },
+    { input: 'where am I from', expectedSkill: 'memory', expectedIntent: 'recall_specific' },
+    { input: 'what is my job', expectedSkill: 'memory', expectedIntent: 'recall_specific' },
     { input: 'what do you remember about me', expectedSkill: 'memory', expectedIntent: 'recall_all' },
     { input: 'current time', expectedSkill: 'time', expectedIntent: 'get_time' },
     { input: 'what is today date', expectedSkill: 'time', expectedIntent: 'get_date' },
@@ -106,6 +109,25 @@ async function runTests() {
   const memoryResult = await orchestrator.process('remember that my favorite color is emerald green', convId);
   assert(memoryResult.provider === 'skill', 'Memory routed to skill');
   assert(memoryResult.response.includes('emerald green') || memoryResult.response.includes('memory') || memoryResult.response.includes('Eren'), 'Memory confirmed saving fact', memoryResult.response);
+
+  // Test Intelligent Fact Interpretation (User Test Case: "remember Im from Odisha Bhubaneshwar India")
+  const locationResult = await orchestrator.process('remember Im from Odisha Bhubaneshwar India', convId);
+  assert(locationResult.provider === 'skill', 'Location statement routed to memory skill');
+  assert(!locationResult.response.includes('your im from odisha bhuba is'), 'Memory does not generate sliced/broken grammar');
+  assert(locationResult.response.includes('Bhubaneshwar') && locationResult.response.includes('Odisha') && locationResult.response.includes('India'), 'Memory accurately parsed Bhubaneshwar, Odisha, India', locationResult.response);
+
+  // Test Recall Location
+  const whereAmIResult = await orchestrator.process('where am I from', convId);
+  assert(whereAmIResult.provider === 'skill', 'Where am I from routed to memory');
+  assert(whereAmIResult.response.includes('Bhubaneshwar'), 'Recalls saved location correctly', whereAmIResult.response);
+
+  // Test Profession Fact Interpretation
+  const professionResult = await orchestrator.process('remember that I am a software engineer', convId);
+  assert(professionResult.response.includes('Software Engineer'), 'Memory confirmed saving profession', professionResult.response);
+
+  // Test Recall Profession
+  const whatIsMyJobResult = await orchestrator.process('what is my job', convId);
+  assert(whatIsMyJobResult.response.includes('Software Engineer'), 'Recalls saved profession correctly', whatIsMyJobResult.response);
 
   // Test Timer Skill Execution
   const timerResult = await orchestrator.process('set a timer for 10 minutes', convId);

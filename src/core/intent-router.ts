@@ -122,6 +122,12 @@ export class IntentRouter {
             extractParams: (match) => ({ fact: match[1].trim() })
         },
         {
+            pattern: /^(?:i(?:'m| am|m)|i live|i stay|i am based|i'm based|im based)\s+(?:in|from|at)\s+(.*)$/i,
+            intent: 'remember_fact',
+            skill: 'memory',
+            extractParams: (match) => ({ fact: match[0].trim() })
+        },
+        {
             pattern: /^(?:change|update|set) my ([a-zA-Z\s]+?) to (.*)$/i,
             intent: 'update_fact',
             skill: 'memory',
@@ -132,6 +138,18 @@ export class IntentRouter {
             intent: 'remember_fact',
             skill: 'memory',
             extractParams: (match) => ({ fact: match[0].trim(), property: match[1].trim(), value: match[2].trim() })
+        },
+        {
+            pattern: /^(?:where (?:am i from|do i live|am i based)|where is my home)$/i,
+            intent: 'recall_specific',
+            skill: 'memory',
+            extractParams: () => ({ property: 'location' })
+        },
+        {
+            pattern: /^(?:what do i do(?: for a living)?|what is my (?:job|profession|career|role)|what's my (?:job|profession|career|role))$/i,
+            intent: 'recall_specific',
+            skill: 'memory',
+            extractParams: () => ({ property: 'profession' })
         },
         {
             pattern: /^(?:do you remember my|what is my|what's my) ([a-zA-Z\s]+)$/i,

@@ -2,10 +2,13 @@ import { BaseSkill } from './base-skill.js';
 import type { IntentPattern, SkillContext, SkillResult } from '../core/skill-registry.js';
 import { config } from '../config/index.js';
 import type { DatabaseService } from '../services/database.js';
+import type { LLMService } from '../services/llm/llm-service.js';
+import { FactInterpreter } from '../services/fact-interpreter.js';
 import { logger } from '../config/logger.js';
 
 /**
  * Skill allowing Zyra to store, recall, and manage long-term personal facts about Eren in SQLite.
+ * Powered by an intelligent FactInterpreter that extracts clean entities and gives articulate British confirmations.
  */
 export class MemorySkill extends BaseSkill {
   name = 'memory';
@@ -17,6 +20,11 @@ export class MemorySkill extends BaseSkill {
       extractParams: (match) => ({ fact: match[1].trim() }),
     },
     {
+      pattern: /^(?:i(?:'m| am|m)|i live|i stay|i am based|i'm based|im based)\s+(?:in|from|at)\s+(.*)$/i,
+      intent: 'remember_fact',
+      extractParams: (match) => ({ fact: match[0].trim() }),
+    },
+    {
       pattern: /^(?:change|update|set) my ([a-zA-Z\s]+?) to (.*)$/i,
       intent: 'update_fact',
       extractParams: (match) => ({ property: match[1].trim(), value: match[2].trim() }),
@@ -25,6 +33,16 @@ export class MemorySkill extends BaseSkill {
       pattern: /^my ([a-zA-Z\s]+?) is (.*)$/i,
       intent: 'remember_fact',
       extractParams: (match) => ({ fact: match[0].trim(), property: match[1].trim(), value: match[2].trim() }),
+    },
+    {
+      pattern: /^(?:where (?:am i from|do i live|am i based)|where is my home)$/i,
+      intent: 'recall_specific',
+      extractParams: () => ({ property: 'location' }),
+    },
+    {
+      pattern: /^(?:what do i do(?: for a living)?|what(?:'s| is) my (?:job|profession|career|role))$/i,
+      intent: 'recall_specific',
+      extractParams: () => ({ property: 'profession' }),
     },
     {
       pattern: /^(?:do you remember my|what is my|what's my) ([a-zA-Z\s]+)$/i,
@@ -47,36 +65,26 @@ export class MemorySkill extends BaseSkill {
   ];
 
   private dbService?: DatabaseService;
+  private llmService?: LLMService;
 
-  constructor(dbService?: DatabaseService) {
+  constructor(dbService?: DatabaseService, llmService?: LLMService) {
     super();
     this.dbService = dbService;
+    this.llmService = llmService;
   }
 
   /**
-   * Extracts a simplified key and value from a freeform memory statement.
-   * e.g. "my favorite color is emerald green" -> key: "favorite_color", value: "emerald green"
+   * Sets the LLM service dynamically if initialized later.
    */
-  private parseFact(rawFact: string): { key: string; value: string } {
-    const text = rawFact.replace(/[?!.]+$/, '').trim();
+  public setLLMService(llmService: LLMService): void {
+    this.llmService = llmService;
+  }
 
-    // Pattern: my [something] is [value]
-    const myMatch = text.match(/^my\s+([a-zA-Z\s]+?)\s+is\s+(.*)$/i);
-    if (myMatch) {
-      const key = myMatch[1].trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      return { key, value: myMatch[2].trim() };
-    }
-
-    // Pattern: I [verb] [something] e.g. "I love sushi", "I work at Google"
-    const iMatch = text.match(/^i\s+(.*)$/i);
-    if (iMatch) {
-      const key = text.slice(0, 25).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      return { key, value: text };
-    }
-
-    // Fallback: generic key
-    const key = text.slice(0, 20).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
-    return { key, value: text };
+  private formatKeyTitle(key: string): string {
+    return key
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   }
 
   /**
@@ -89,7 +97,7 @@ export class MemorySkill extends BaseSkill {
       return this.success("I don't have access to my long-term database right now.");
     }
 
-    // 1. Remember a new fact
+    // 1. Remember a new fact (Interpreted intelligently)
     if (intent === 'remember_fact') {
       let rawFact = context.intent.parameters?.fact || '';
       if (!rawFact && context.intent.parameters?.property && context.intent.parameters?.value) {
@@ -99,11 +107,28 @@ export class MemorySkill extends BaseSkill {
         return this.success(`What would you like me to remember, ${config.ownerName}?`);
       }
 
-      const { key, value } = this.parseFact(rawFact);
-      this.dbService.setMemory(key, value, 'user_preference');
-      logger.info(`Saved persistent memory: [${key}] = "${value}"`);
+      // Run through natural language entity interpreter
+      const interpreted = await FactInterpreter.interpret(
+        rawFact,
+        config.ownerName,
+        this.llmService
+      );
 
-      return this.success(`Saved! I'll remember that your ${key.replace(/_/g, ' ')} is ${value}.`);
+      // Save primary memory
+      this.dbService.setMemory(interpreted.key, interpreted.value, interpreted.category);
+      logger.info(`Saved persistent memory: [${interpreted.key}] = "${interpreted.value}" (${interpreted.category})`);
+
+      // Save secondary memories (e.g. city, state, country, company)
+      if (interpreted.secondaryMemories) {
+        for (const [subKey, subVal] of Object.entries(interpreted.secondaryMemories)) {
+          if (subKey !== interpreted.key && subVal) {
+            this.dbService.setMemory(subKey, subVal, interpreted.category);
+            logger.info(`Saved secondary memory: [${subKey}] = "${subVal}"`);
+          }
+        }
+      }
+
+      return this.success(interpreted.confirmation);
     }
 
     // 2. Update an existing fact
@@ -114,11 +139,24 @@ export class MemorySkill extends BaseSkill {
         return this.success('What would you like to update?');
       }
 
+      // Check if location
+      if (/location|city|home/i.test(prop)) {
+        const parsed = FactInterpreter.parseLocationText(value);
+        this.dbService.setMemory('location', parsed.fullLocation, 'user_profile');
+        if (parsed.secondary) {
+          for (const [subK, subV] of Object.entries(parsed.secondary)) {
+            this.dbService.setMemory(subK, subV, 'user_profile');
+          }
+        }
+        logger.info(`Updated location memory to: ${parsed.fullLocation}`);
+        return this.success(`Updated your location to ${parsed.fullLocation}, ${config.ownerName}.`);
+      }
+
       const key = prop.toLowerCase().replace(/[^a-z0-9]+/g, '_');
       this.dbService.setMemory(key, value, 'user_preference');
       logger.info(`Updated persistent memory: [${key}] = "${value}"`);
 
-      return this.success(`Updated your ${prop.replace(/_/g, ' ')} to ${value}.`);
+      return this.success(`Updated your ${prop.replace(/_/g, ' ')} to ${value}, ${config.ownerName}.`);
     }
 
     // 3. Recall specific fact
@@ -126,6 +164,29 @@ export class MemorySkill extends BaseSkill {
       const prop = (context.intent.parameters?.property || '').trim().toLowerCase();
       const key = prop.replace(/[^a-z0-9]+/g, '_');
       const memories = this.dbService.getAllMemories();
+
+      // Smart semantic mappings for common inquiries
+      if (['location', 'city', 'country', 'home', 'hometown'].includes(key)) {
+        if (memories['location']) {
+          return this.success(`You are from ${memories['location']}.`);
+        }
+        if (memories['city']) {
+          return this.success(`You are based in ${memories['city']}.`);
+        }
+      }
+
+      if (['profession', 'job', 'work', 'role', 'career'].includes(key)) {
+        if (memories['profession']) {
+          return this.success(`You work as a ${memories['profession']}.`);
+        }
+        if (memories['workplace'] || memories['company']) {
+          return this.success(`You work at ${memories['workplace'] || memories['company']}.`);
+        }
+      }
+
+      if (key === 'birthday' && memories['birthday']) {
+        return this.success(`Your birthday is ${memories['birthday']}.`);
+      }
 
       let matchedKey = Object.keys(memories).find((k) => k === key);
       if (!matchedKey) {
@@ -135,7 +196,7 @@ export class MemorySkill extends BaseSkill {
       if (matchedKey && memories[matchedKey]) {
         return this.success(`Your ${matchedKey.replace(/_/g, ' ')} is ${memories[matchedKey]}.`);
       } else {
-        return this.success(`I don't have your ${prop} saved in memory yet. You can tell me anytime in chat!`);
+        return this.success(`I don't have your ${prop} saved in memory yet, ${config.ownerName}. You can tell me anytime in chat!`);
       }
     }
 
@@ -148,7 +209,7 @@ export class MemorySkill extends BaseSkill {
         return this.success(`I don't have any facts saved about you yet, ${config.ownerName}. Just tell me in chat, like "My favorite food is sushi"!`);
       }
 
-      const lines = keys.map((k) => `• ${k.replace(/_/g, ' ')}: ${memories[k]}`).join('\n');
+      const lines = keys.map((k) => `• ${this.formatKeyTitle(k)}: ${memories[k]}`).join('\n');
       return this.success(`Here's what I currently remember about you, ${config.ownerName}:\n${lines}`);
     }
 
