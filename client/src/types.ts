@@ -121,3 +121,22 @@ export interface BriefingData {
   };
 }
 
+export interface MusicTrack {
+  id: string;
+  title: string;
+  artist: string;
+  platform: 'youtube' | 'spotify';
+  thumbnail: string;
+  url: string;
+  embedUrl: string;
+  duration?: string;
+}
+
+export interface MusicPlayerState {
+  currentTrack: MusicTrack | null;
+  isPlaying: boolean;
+  volume: number;
+  platform: 'youtube' | 'spotify';
+  queue: MusicTrack[];
+}
+

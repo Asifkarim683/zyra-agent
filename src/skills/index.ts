@@ -14,6 +14,7 @@ import { SystemAutomationSkill } from './system-automation-skill.js';
 import { SystemAutomationService } from '../services/system-automation-service.js';
 import type { DatabaseService } from '../services/database.js';
 import type { BriefingService } from '../services/briefing-service.js';
+import type { MusicService } from '../services/music-service.js';
 
 export * from './base-skill.js';
 export * from './greeting-skill.js';
@@ -36,19 +37,21 @@ export * from './system-automation-skill.js';
  * @param automationService Optional SystemAutomationService for desktop automation.
  * @param options Optional configuration flags (enableAutomation defaults to false).
  * @param briefingService Optional BriefingService for proactive voice briefings.
+ * @param musicService Optional MusicService for YouTube and Spotify music player.
  */
 export function registerAllSkills(
   registry: SkillRegistry,
   dbService?: DatabaseService,
   automationService?: SystemAutomationService,
   options: { enableAutomation?: boolean } = { enableAutomation: false },
-  briefingService?: BriefingService
+  briefingService?: BriefingService,
+  musicService?: MusicService
 ): void {
   const skills: any[] = [
     new GreetingSkill(),
     new TimeSkill(),
     new AlarmSkill(),
-    new MusicSkill(),
+    new MusicSkill(musicService),
     new ControlSkill(),
     new SystemInfoSkill(),
     new WeatherSkill(dbService),

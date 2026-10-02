@@ -102,6 +102,11 @@ async function runTests() {
 
   const musicResult = await orchestrator.process('play jazz', convId);
   assert(musicResult.response.includes('jazz'), 'Music skill extracted query parameter', musicResult.response);
+  assert(musicResult.data?.music?.track, 'Music skill returned resolved track payload');
+  assert(musicResult.data?.music?.track?.embedUrl, 'Music track contains playable embedUrl');
+
+  const pauseMusicResult = await orchestrator.process('pause music', convId);
+  assert(pauseMusicResult.response.toLowerCase().includes('pause'), 'Pause music confirmed', pauseMusicResult.response);
 
   // Test World Time Skill
   const worldTimeResult = await orchestrator.process('what time is it in Tokyo', convId);
@@ -512,6 +517,37 @@ async function runTests() {
 
     const briefingTools = getToolsForPrompt('give me my morning voice briefing');
     assert(briefingTools.some((t) => t.function.name === 'get_voice_briefing'), 'Briefing prompt routes to get_voice_briefing tool');
+
+    const musicTools = getToolsForPrompt('play some chill lofi beats on youtube');
+    assert(musicTools.some((t) => t.function.name === 'play_music'), 'Music prompt routes to play_music tool');
+
+    // 12. Test HTTP Music Endpoints (YouTube & Spotify)
+    console.log('\n[12] Testing Inbuilt Music Player Endpoints (YouTube & Spotify)...');
+    const musicSearchRes = await fetch(`http://localhost:${testPort}/api/v1/music/search?q=bohemian+rhapsody&platform=youtube`);
+    const musicSearchJson = await musicSearchRes.json();
+    assert(musicSearchRes.status === 200, 'GET /api/v1/music/search returns 200');
+    assert(musicSearchJson.success === true, 'Music search succeeded');
+    assert(Array.isArray(musicSearchJson.tracks) && musicSearchJson.tracks.length > 0, 'YouTube returned search results');
+    assert(musicSearchJson.tracks[0].embedUrl.includes('youtube'), 'YouTube track has valid embed URL');
+
+    const musicPlayRes = await fetch(`http://localhost:${testPort}/api/v1/music/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'lofi beats', platform: 'youtube' }),
+    });
+    const musicPlayJson = await musicPlayRes.json();
+    assert(musicPlayRes.status === 200, 'POST /api/v1/music/play returns 200');
+    assert(musicPlayJson.track && musicPlayJson.track.platform === 'youtube', 'Music play sets YouTube track');
+    assert(musicPlayJson.state.isPlaying === true, 'Music player state set to isPlaying: true');
+
+    const musicControlRes = await fetch(`http://localhost:${testPort}/api/v1/music/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'pause' }),
+    });
+    const musicControlJson = await musicControlRes.json();
+    assert(musicControlRes.status === 200, 'POST /api/v1/music/control returns 200');
+    assert(musicControlJson.state.isPlaying === false, 'Music player state updated to paused');
 
   } finally {
     server.close();

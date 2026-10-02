@@ -163,6 +163,35 @@ export const TOOL_SCHEMAS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'play_music',
+      description: 'Play a music track, song, or ambient audio on YouTube or Spotify in the inbuilt player',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Song name, artist, genre, or track title to play' },
+          platform: { type: 'string', enum: ['youtube', 'spotify'], description: 'Streaming platform (youtube or spotify)' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'control_music',
+      description: 'Control the inbuilt music player (pause, resume, stop, next track)',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['pause', 'resume', 'stop', 'next'], description: 'Playback control action' },
+        },
+        required: ['action'],
+      },
+    },
+  },
 ];
 
 /**
@@ -247,6 +276,13 @@ export function getToolsForPrompt(prompt: string): ToolDefinition[] {
   if (isBriefingRequested) {
     const t = TOOL_SCHEMAS.find((s) => s.function.name === 'get_voice_briefing');
     if (t) matched.push(t);
+  }
+  const isMusicRequested = /\b(play|song|music|track|spotify|youtube|listen|tune|audio|pause music|resume music|stop music)\b/i.test(p);
+  if (isMusicRequested) {
+    const t1 = TOOL_SCHEMAS.find((s) => s.function.name === 'play_music');
+    const t2 = TOOL_SCHEMAS.find((s) => s.function.name === 'control_music');
+    if (t1) matched.push(t1);
+    if (t2) matched.push(t2);
   }
 
   return matched;
@@ -477,6 +513,37 @@ export async function executeTool(
           };
         }
         return { result: 'Voice briefing service unavailable.' };
+      }
+
+      case 'play_music': {
+        const query = String(args.query || '').trim();
+        const platform = (args.platform as 'youtube' | 'spotify') || undefined;
+        const musicSkill = ctx.registry.get('music');
+        if (musicSkill) {
+          const res = await musicSkill.execute({
+            intent: { intent: 'play_music', skill: 'music', confidence: 1, raw: query, parameters: { query, platform: platform || '' } },
+            userId: 'user',
+            conversationId: ctx.conversationId,
+            history: [],
+          });
+          return { result: res.response, data: res.data };
+        }
+        return { result: 'Music player skill unavailable.' };
+      }
+
+      case 'control_music': {
+        const action = String(args.action || 'pause').toLowerCase();
+        const musicSkill = ctx.registry.get('music');
+        if (musicSkill) {
+          const res = await musicSkill.execute({
+            intent: { intent: `${action}_music`, skill: 'music', confidence: 1, raw: action, parameters: {} },
+            userId: 'user',
+            conversationId: ctx.conversationId,
+            history: [],
+          });
+          return { result: res.response, data: res.data };
+        }
+        return { result: 'Music player skill unavailable.' };
       }
 
       default:

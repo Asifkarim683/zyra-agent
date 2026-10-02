@@ -33,7 +33,17 @@ Unlike standard chatbots that rely entirely on slow, non-deterministic LLM round
   - `displayText`: Rich markdown cards with live weather metrics, task counts, news headlines, and system telemetry.
 - **Scheduled Autonomous Routines**: Cron-managed routines (`0 8 * * *` morning briefing, `0 20 * * *` evening debrief) with pending notification queues.
 
-### 3. ⚡ Safe Mathematical & Code Execution Sandbox
+### 3. 🎵 Inbuilt Music Player (YouTube & Spotify API Support)
+- **Universal Multi-Platform Streaming**: Supports seamless search and playback across both **YouTube** and **Spotify** right inside the cybernetic interface.
+- **Dual API & Zero-Config Architecture**:
+  - **YouTube Integration**: Connects via official YouTube Data API v3 (`YOUTUBE_API_KEY`) or an ultra-fast zero-config parser to resolve official music videos, channel art, and embed streams without API keys.
+  - **Spotify Integration**: Connects via official Spotify Web API (`SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`) using Client Credentials flow, with fallback to Spotify oEmbed metadata resolution.
+- **Floating Dock & Full Studio Drawer**:
+  - **Docked Mini-Bar**: Low-profile player with spinning vinyl album art, track details, platform tags, play/pause toggles, and volume control.
+  - **Full Music Studio**: Live YouTube and Spotify embedded player, instant search bar, platform toggles, and one-click ambient presets (*Lofi Chill*, *Synthwave Radio*, *Cyberpunk 2077*, *Coffee Shop Jazz*, *Classical Focus*).
+- **Conversational Voice Control**: Responds directly to spoken or typed commands (*"play Bohemian Rhapsody on youtube"*, *"play some jazz on spotify"*, *"pause music"*, *"resume music"*, *"next song"*, *"stop music"*).
+
+### 4. ⚡ Safe Mathematical & Code Execution Sandbox
 - **Host-Isolated `node:vm` Container**: Eliminates hallucinated calculations by executing mathematical, statistical, and algorithmic queries inside a hardened execution sandbox.
 - **Built-in Computational Libraries**:
   - **Statistics**: `avg()`, `median()`, `sum()`, `min()`, `max()`, `stdDev()`, `variance()`, `factorial()`, `combinations()`, `permutations()`
@@ -42,17 +52,17 @@ Unlike standard chatbots that rely entirely on slow, non-deterministic LLM round
   - **Dimensional Unit Conversions**: `unitConvert()` across metric/imperial lengths, masses, temperatures, and digital storage.
 - **Defensive Safeguards**: Strict 1500ms timeout protection, infinite loop termination, and AST/token blacklisting against host access (`process`, `require`, `fs`, `eval`).
 
-### 4. 🧠 Subconscious Semantic Memory & Local Document RAG
+### 5. 🧠 Subconscious Semantic Memory & Local Document RAG
 - **Zero-Latency Memory Fast-Path**: Parses facts, profile updates, and preferences (`FactInterpreter`) and writes them directly to local SQLite in WAL mode.
 - **Subconscious Vector Memory Recall**: Node 2 of the pipeline automatically computes 768-dimensional vector embeddings (`nomic-embed-text`) to recall relevant long-term memories before formulating responses.
 - **Local Document RAG**: Complete document ingestion pipeline allowing indexing and cosine-similarity retrieval over personal reference materials.
 
-### 5. 🌐 Live Web Intelligence & Real-Time Weather
+### 6. 🌐 Live Web Intelligence & Real-Time Weather
 - **Scraped Web Search**: Autonomous DuckDuckGo Lite integration for real-time fact retrieval without commercial API keys.
 - **Clean Article Extraction**: In-memory HTML parser for extracting readable content from remote web pages.
 - **Open-Meteo Geocoding**: Real-time worldwide weather and temperature monitoring with phonetic city name resolution fallbacks.
 
-### 6. 🛡️ Defensive Security & Hardening
+### 7. 🛡️ Defensive Security & Hardening
 - **Loopback & Private SSRF Defense**: Comprehensive CIDR and IP validation blocking access to `127.0.0.1`, `localhost`, `10.x.x.x`, `192.168.x.x`, and cloud metadata endpoints (`169.254.169.254`).
 - **Strict OS Protection**: Desktop application execution is architecturally isolated and disabled to ensure host integrity.
 - **Zod Schema Contracts**: All REST endpoints and environment configurations are validated at compile and runtime.
@@ -144,17 +154,18 @@ Every user interaction traverses an instrumented, telemetry-tracked processing p
 
 ## 🧪 Automated Verification Suite
 
-The repository includes a comprehensive end-to-end verification test harness (`tests/verify.ts`) executing **177 automated tests with 0 failures**:
+The repository includes a comprehensive end-to-end verification test harness (`tests/verify.ts`) executing **190 automated tests with 0 failures**:
 
 ```bash
 ========================================
-Test Results: 177 passed, 0 failed
+Test Results: 190 passed, 0 failed
 ========================================
 ```
 
 Test coverage includes:
 - **Conversational Parsing**: Preamble stripping, compound politeness phrases, word-number resolution, and entity extraction.
 - **Skill Engine**: Intent routing accuracy across all skills (Greeting, Memory, Weather, Time, Timers, Alarms, Tasks, Control, System Info).
+- **Inbuilt Music Engine**: YouTube & Spotify API resolution, zero-config scrapers & oEmbed fallbacks, queue management, and playback state machine.
 - **Math Sandbox**: Arithmetic, statistical distributions, compound interest formulas, date calculations, unit conversions, infinite-loop timeouts, and token blocking.
 - **Proactive Briefings**: Dual voice/text generation, clean audio formatting, pending notification state, and acknowledgment lifecycle.
 - **Security & SSRF Guards**: Loopback, CIDR, private IP, and cloud metadata blocking.

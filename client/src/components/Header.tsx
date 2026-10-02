@@ -1,4 +1,4 @@
-import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Plus, Activity, BookOpen } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Cpu, PlayCircle, Plus, Activity, BookOpen, Music } from 'lucide-react';
 import type { SystemHealth } from '../types';
 
 interface HeaderProps {
@@ -8,6 +8,8 @@ interface HeaderProps {
   onToggleTts: () => void;
   onOpenRoutines: () => void;
   onOpenKnowledge?: () => void;
+  onOpenMusic?: () => void;
+  hasActiveMusic?: boolean;
   onNewChat?: () => void;
 }
 
@@ -18,6 +20,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTts,
   onOpenRoutines,
   onOpenKnowledge,
+  onOpenMusic,
+  hasActiveMusic,
   onNewChat,
 }) => {
   return (
@@ -220,6 +224,42 @@ export const Header: React.FC<HeaderProps> = ({
           <PlayCircle size={13} color="#f59e0b" />
           <span>ROUTINES</span>
         </button>
+
+        {/* Inbuilt Music Studio Button */}
+        {onOpenMusic && (
+          <button
+            onClick={onOpenMusic}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 11px',
+              borderRadius: '8px',
+              background: hasActiveMusic ? 'rgba(236, 72, 153, 0.2)' : 'rgba(236, 72, 153, 0.08)',
+              border: hasActiveMusic ? '1px solid #ec4899' : '1px solid rgba(236, 72, 153, 0.3)',
+              color: '#f472b6',
+              fontSize: '11px',
+              fontWeight: 600,
+              fontFamily: 'var(--font-mono)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(236, 72, 153, 0.25)';
+              e.currentTarget.style.borderColor = '#ec4899';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(236, 72, 153, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = hasActiveMusic ? 'rgba(236, 72, 153, 0.2)' : 'rgba(236, 72, 153, 0.08)';
+              e.currentTarget.style.borderColor = hasActiveMusic ? '1px solid #ec4899' : 'rgba(236, 72, 153, 0.3)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open Inbuilt Music Studio (YouTube & Spotify)"
+          >
+            <Music size={13} color="#ec4899" className={hasActiveMusic ? 'animate-pulse' : ''} />
+            <span>MUSIC</span>
+          </button>
+        )}
 
         {/* External Model Node Monitor Link */}
         <a

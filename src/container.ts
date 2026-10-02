@@ -14,6 +14,7 @@ import { SystemAutomationService } from './services/system-automation-service.js
 import { TelemetryService } from './services/telemetry-service.js';
 import { SandboxService } from './services/sandbox-service.js';
 import { BriefingService } from './services/briefing-service.js';
+import { MusicService } from './services/music-service.js';
 
 // 1. Initialize SQLite Database Service for persistent storage
 export const databaseService = new DatabaseService();
@@ -40,6 +41,9 @@ export const briefingService = new BriefingService(
   telemetryService
 );
 
+// 1.7 Initialize Inbuilt Music Service for YouTube and Spotify
+export const musicService = new MusicService();
+
 // 2. Initialize skill registry and register built-in skills
 export const skillRegistry = new SkillRegistry();
 registerAllSkills(
@@ -47,7 +51,8 @@ registerAllSkills(
   databaseService,
   systemAutomationService,
   { enableAutomation: false },
-  briefingService
+  briefingService,
+  musicService
 );
 
 // 3. Initialize intent router grounded with persistent database

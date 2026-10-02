@@ -10,6 +10,7 @@ import { telemetryRouter } from './telemetry.js';
 import { documentsRouter } from './documents.js';
 import { briefingRouter } from './briefing.js';
 import { sandboxRouter } from './sandbox.js';
+import { musicRouter } from './music.js';
 
 export const routes = Router();
 
@@ -24,3 +25,4 @@ routes.use('/telemetry', telemetryRouter);
 routes.use('/documents', documentsRouter);
 routes.use('/briefings', briefingRouter);
 routes.use('/sandbox', sandboxRouter);
+routes.use('/music', musicRouter);

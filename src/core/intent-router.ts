@@ -33,6 +33,30 @@ export class IntentRouter {
             skill: 'music',
             extractParams: () => ({})
         },
+        {
+            pattern: /^(?:pause music|pause the music|pause song|pause track)$/i,
+            intent: 'pause_music',
+            skill: 'music',
+            extractParams: () => ({})
+        },
+        {
+            pattern: /^(?:resume music|resume the music|resume song|resume track|unpause music)$/i,
+            intent: 'resume_music',
+            skill: 'music',
+            extractParams: () => ({})
+        },
+        {
+            pattern: /^(?:stop music|stop the music|stop song|stop playback)$/i,
+            intent: 'stop_music',
+            skill: 'music',
+            extractParams: () => ({})
+        },
+        {
+            pattern: /^(?:next song|next track|skip song|skip track)$/i,
+            intent: 'next_music',
+            skill: 'music',
+            extractParams: () => ({})
+        },
         // Alarm / reminder patterns
         {
             pattern: /^(?:set (?:an? )?alarm (?:for|at)|wake me up at) (.*)$/i,

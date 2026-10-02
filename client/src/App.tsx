@@ -3,8 +3,9 @@ import { Header } from './components/Header';
 import { ChatArea } from './components/ChatArea';
 import { QuickRoutines } from './components/QuickRoutines';
 import { KnowledgeModal } from './components/KnowledgeModal';
+import { MusicPlayer } from './components/MusicPlayer';
 import { useVoice } from './hooks/useVoice';
-import type { ChatMessage, SystemHealth, RoutineItem, BriefingData } from './types';
+import type { ChatMessage, SystemHealth, RoutineItem, BriefingData, MusicTrack } from './types';
 
 function extractSpeechChunk(buffer: string, isFinal = false): { chunk: string; rest: string } | null {
   if (isFinal) {
@@ -74,6 +75,9 @@ export function App() {
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
   const [isRoutinesOpen, setIsRoutinesOpen] = useState(false);
   const [isKnowledgeOpen, setIsKnowledgeOpen] = useState(false);
+  const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
+  const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
 
   // Generate or load persistent conversationId
   const [conversationId, setConversationId] = useState<string>(() => {
@@ -239,6 +243,18 @@ export function App() {
                   )
                 );
               } else if (event === 'done') {
+                if (data.data?.music?.track) {
+                  setCurrentTrack(data.data.music.track);
+                  setIsMusicPlaying(true);
+                } else if (data.data?.music?.action === 'pause') {
+                  setIsMusicPlaying(false);
+                } else if (data.data?.music?.action === 'resume') {
+                  setIsMusicPlaying(true);
+                } else if (data.data?.music?.action === 'stop') {
+                  setIsMusicPlaying(false);
+                  setCurrentTrack(null);
+                }
+
                 if (data.data?.briefing?.voiceText) {
                   voice.stopSpeaking();
                   if (voice.ttsEnabled) {
@@ -419,6 +435,8 @@ export function App() {
         onToggleTts={() => voice.setTtsEnabled(!voice.ttsEnabled)}
         onOpenRoutines={() => setIsRoutinesOpen(true)}
         onOpenKnowledge={() => setIsKnowledgeOpen(true)}
+        onOpenMusic={() => setIsMusicPlayerOpen(true)}
+        hasActiveMusic={Boolean(currentTrack)}
         onNewChat={handleNewChat}
       />
 
@@ -447,6 +465,22 @@ export function App() {
       <KnowledgeModal
         isOpen={isKnowledgeOpen}
         onClose={() => setIsKnowledgeOpen(false)}
+      />
+
+      <MusicPlayer
+        currentTrack={currentTrack}
+        isOpen={isMusicPlayerOpen}
+        onClose={() => setIsMusicPlayerOpen(false)}
+        onSelectTrack={(track) => {
+          setCurrentTrack(track);
+          setIsMusicPlaying(true);
+        }}
+        isPlaying={isMusicPlaying}
+        onTogglePlay={() => setIsMusicPlaying((prev) => !prev)}
+        onStop={() => {
+          setIsMusicPlaying(false);
+          setCurrentTrack(null);
+        }}
       />
     </div>
   );

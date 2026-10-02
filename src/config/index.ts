@@ -19,6 +19,9 @@ const envSchema = z.object({
     ASSISTANT_NAME: z.string().default('Zyra'),
     OWNER_NAME: z.string().default('User'),
     DB_PATH: z.string().default('./data/zyra.db'),
+    YOUTUBE_API_KEY: z.string().optional(),
+    SPOTIFY_CLIENT_ID: z.string().optional(),
+    SPOTIFY_CLIENT_SECRET: z.string().optional(),
 });
 
 const _env = envSchema.safeParse(process.env);
@@ -43,6 +46,9 @@ export const config = {
     assistantName: _env.data.ASSISTANT_NAME,
     ownerName: _env.data.OWNER_NAME,
     dbPath: _env.data.DB_PATH,
+    youtubeApiKey: _env.data.YOUTUBE_API_KEY,
+    spotifyClientId: _env.data.SPOTIFY_CLIENT_ID,
+    spotifyClientSecret: _env.data.SPOTIFY_CLIENT_SECRET,
 } as const;
 
 /**

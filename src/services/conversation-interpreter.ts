@@ -276,7 +276,7 @@ export class ConversationInterpreter {
         raw,
         cleaned,
         domain: 'music',
-        intent: 'play_music',
+        intent: music.intent || 'play_music',
         skill: 'music',
         confidence: 1.0,
         parameters: music.parameters,
@@ -507,7 +507,7 @@ export class ConversationInterpreter {
         raw,
         cleaned,
         domain: 'music',
-        intent: 'play_music',
+        intent: music.intent || 'play_music',
         skill: 'music',
         confidence: 1.0,
         parameters: music.parameters,
@@ -1091,15 +1091,41 @@ export class ConversationInterpreter {
    * Parses music requests.
    */
   private static parseMusic(cleaned: string): {
+    intent?: string;
     parameters: Record<string, string>;
     entities: Record<string, any>;
   } | null {
+    // Control commands
+    if (/^(?:pause music|pause the music|pause song|pause track)$/i.test(cleaned)) {
+      return { intent: 'pause_music', parameters: {}, entities: {} };
+    }
+    if (/^(?:resume music|resume the music|resume song|resume track|unpause music)$/i.test(cleaned)) {
+      return { intent: 'resume_music', parameters: {}, entities: {} };
+    }
+    if (/^(?:stop music|stop the music|stop song|stop playback)$/i.test(cleaned)) {
+      return { intent: 'stop_music', parameters: {}, entities: {} };
+    }
+    if (/^(?:next song|next track|skip song|skip track)$/i.test(cleaned)) {
+      return { intent: 'next_music', parameters: {}, entities: {} };
+    }
+
     const match = cleaned.match(/^(?:play music|play song|play some music|play)\s*(.*)$/i);
     if (match) {
-      const query = match[1].trim();
+      let query = match[1].trim();
+      let platform = 'youtube';
+
+      if (/\bon\s+spotify\b/i.test(query) || /\bspotify\b/i.test(query)) {
+        platform = 'spotify';
+        query = query.replace(/\bon\s+spotify\b/gi, '').replace(/\bspotify\b/gi, '').trim();
+      } else if (/\bon\s+youtube\b/i.test(query) || /\byoutube\b/i.test(query)) {
+        platform = 'youtube';
+        query = query.replace(/\bon\s+youtube\b/gi, '').replace(/\byoutube\b/gi, '').trim();
+      }
+
       return {
-        parameters: { query },
-        entities: { query },
+        intent: 'play_music',
+        parameters: { query, platform },
+        entities: { query, platform },
       };
     }
     return null;
