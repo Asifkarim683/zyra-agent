@@ -35,7 +35,7 @@ export function createApp(): Express {
 
     // Serve dedicated model network monitor page
     const monitorFile = path.resolve(process.cwd(), 'public/monitor.html');
-    app.get('/monitor', (_req, res) => {
+    app.get(['/monitor', '/monitor.html'], (_req, res) => {
         if (fs.existsSync(monitorFile)) {
             res.sendFile(monitorFile);
         } else {
@@ -49,7 +49,7 @@ export function createApp(): Express {
     if (fs.existsSync(clientDist)) {
         app.use(express.static(clientDist));
         app.get('*', (req, res, next) => {
-            if (req.path.startsWith('/api') || req.path === '/monitor') return next();
+            if (req.path.startsWith('/api') || req.path === '/monitor' || req.path === '/monitor.html') return next();
             res.sendFile(path.join(clientDist, 'index.html'));
         });
     }
